@@ -96,6 +96,16 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .modal-input:focus{border-color:#7dd3fc}
 .modal-save{width:100%;background:linear-gradient(135deg,#0ea5e9,#38bdf8);border:none;border-radius:16px;padding:14px;color:#fff;font-weight:900;font-size:17px;cursor:pointer;font-family:inherit;margin-top:8px;box-shadow:0 6px 24px rgba(14,165,233,.35)}
 
+.reminder{border-radius:18px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;animation:slideIn .4s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.reminder-icon{font-size:24px;flex-shrink:0}
+.reminder-text{font-size:13px;font-weight:600;line-height:1.4}
+.reminder-title{font-weight:800;font-size:14px;margin-bottom:2px}
+.reminder.morning{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1.5px solid #fbbf24;color:#92400e}
+.reminder.nudge{background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1.5px solid #60a5fa;color:#1e40af}
+.reminder.evening{background:linear-gradient(135deg,#fce7f3,#fbcfe8);border:1.5px solid #f472b6;color:#9d174d}
+.reminder.streak{background:linear-gradient(135deg,#d1fae5,#a7f3d0);border:1.5px solid #34d399;color:#065f46}
+
 .suggest-banner{background:linear-gradient(135deg,#fff7ed,#fef3c7);border-radius:20px;padding:18px 16px;border:2px solid #fbbf24;margin-bottom:14px}
 .suggest-title{font-weight:800;font-size:15px;color:#92400e;margin-bottom:12px}
 .suggest-item{background:rgba(255,255,255,.7);border-radius:14px;padding:12px 14px;margin-bottom:8px}
@@ -224,6 +234,64 @@ function stats(){
   return{tl,wT,yT,rT,rW,rY,twk:EX.reduce((s,e)=>s+wT[e.id],0),tyr:EX.reduce((s,e)=>s+yT[e.id],0)};
 }
 
+function getReminders(){
+  const hr=new Date().getHours();
+  const t=dayKey(),tl=D.dailyLogs[t]||{};
+  const totalDone=EX.reduce((s,e)=>s+(tl[e.id]||0),0);
+  const totalGoal=EX.reduce((s,e)=>s+D.goals[e.id],0);
+  const pct=totalGoal>0?totalDone/totalGoal:0;
+  const allDone=EX.every(e=>(tl[e.id]||0)>=D.goals[e.id]);
+  const reminders=[];
+
+  // Check streak (consecutive days with all goals met)
+  let streak=0;
+  for(let i=1;i<=30;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const log=D.dailyLogs[dayKey(d)]||{};
+    if(EX.every(e=>(log[e.id]||0)>=D.goals[e.id]))streak++;
+    else break;
+  }
+
+  if(allDone){
+    if(streak>=2) reminders.push({type:'streak',icon:'\u{1F525}',title:streak+' day streak!',msg:'You\'re on fire! All goals smashed '+streak+' days in a row. Keep it going!'});
+    return reminders; // No nagging if done
+  }
+
+  // Morning (5am-11am) - haven't started
+  if(hr>=5 && hr<12 && totalDone===0){
+    const msgs=['Rise and grind! Your goals are waiting \u2014 start with a quick set.','Good morning! Fresh day, fresh goals. Let\'s get moving!','New day, new gains. Time to log your first set!'];
+    reminders.push({type:'morning',icon:'\u2600\uFE0F',title:'Good morning!',msg:msgs[Math.floor(Math.random()*msgs.length)]});
+  }
+
+  // Midday (12pm-5pm) - partial progress
+  if(hr>=12 && hr<17 && totalDone>0 && pct<1){
+    const closest=EX.reduce((best,e)=>{const p=(tl[e.id]||0)/D.goals[e.id];return p>best.p&&p<1?{id:e.id,label:e.label,p,left:D.goals[e.id]-(tl[e.id]||0)}:best},{p:0,label:'',left:0});
+    if(closest.label) reminders.push({type:'nudge',icon:'\u{1F4AA}',title:'Keep pushing!',msg:'You\'re '+Math.round(pct*100)+'% through today\'s goals. Only '+closest.left+' '+closest.label.toLowerCase()+' left to finish that one!'});
+  }
+
+  // Midday - haven't started
+  if(hr>=12 && hr<17 && totalDone===0){
+    reminders.push({type:'nudge',icon:'\u{1F3AF}',title:'Afternoon check-in',msg:'You haven\'t logged any reps today yet. Even one set counts \u2014 get started!'});
+  }
+
+  // Evening (5pm-11pm) - not done
+  if(hr>=17 && hr<23 && pct<1){
+    if(totalDone===0){
+      reminders.push({type:'evening',icon:'\u23F0',title:'Don\'t miss today!',msg:'No reps logged yet. The day isn\'t over \u2014 squeeze in a few sets before bed!'});
+    } else {
+      const left=totalGoal-totalDone;
+      reminders.push({type:'evening',icon:'\u{1F3C1}',title:'Almost there!',msg:'You\'ve done '+totalDone+' reps today. Just '+left+' more to hit all your goals. Finish strong!'});
+    }
+  }
+
+  // Streak reminder
+  if(streak>=2 && !allDone){
+    reminders.push({type:'streak',icon:'\u{1F525}',title:'Protect your '+streak+' day streak!',msg:'Don\'t break the chain \u2014 hit your goals today to keep it alive.'});
+  }
+
+  return reminders;
+}
+
 function render(){
   const t=dayKey(),tl=D.dailyLogs[t]||{},s=stats();
   document.getElementById('dateDisplay').textContent=new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
@@ -235,6 +303,11 @@ function render(){
   document.getElementById('allDone').classList.toggle('show',allDn);
 
   let h='';
+
+  // Reminders
+  const rems=getReminders();
+  rems.forEach(r=>{h+='<div class="reminder '+r.type+'"><div class="reminder-icon">'+r.icon+'</div><div class="reminder-text"><div class="reminder-title">'+r.title+'</div>'+r.msg+'</div></div>'});
+
   const sg=getSugg();
   if(sg.length){
     h+='<div class="suggest-banner"><div class="suggest-title">\u23F0 Weekly Review</div>';

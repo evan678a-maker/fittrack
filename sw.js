@@ -1,11 +1,10 @@
-const CACHE_NAME = 'fittrack-v1';
+const CACHE_NAME = 'fittrack-v2';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap'
+  '/icons/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
@@ -24,6 +23,10 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+    fetch(e.request).then(res => {
+      const clone = res.clone();
+      caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });

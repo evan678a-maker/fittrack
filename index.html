@@ -557,6 +557,36 @@ function showDayDetail(dk){
   el.classList.add('show');
 }
 
+// ─── AUTO-REFRESH ON NEW DAY ───
+let lastDay=dayKey();
+
+// When user switches back to the app, check if it's a new day
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){
+    load(); // reload data from storage
+    const today=dayKey();
+    if(today!==lastDay){
+      lastDay=today;
+      calYear=new Date().getFullYear();
+      calMon=new Date().getMonth();
+    }
+    render();
+    if(curPage===1) renderCal();
+  }
+});
+
+// Also check every 60 seconds in case the app stays open past midnight
+setInterval(function(){
+  const today=dayKey();
+  if(today!==lastDay){
+    lastDay=today;
+    calYear=new Date().getFullYear();
+    calMon=new Date().getMonth();
+    render();
+    if(curPage===1) renderCal();
+  }
+},60000);
+
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body>

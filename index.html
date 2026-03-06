@@ -14,6 +14,55 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg,#dbeafe 0%,#e0f2fe 15%,#f0f9ff 40%,#fff 100%);min-height:100vh;min-height:100dvh;overflow-x:hidden;color:#0c4a6e}
+.pages-wrap{display:flex;width:200vw;transition:transform .35s cubic-bezier(.4,0,.2,1)}
+.pages-wrap.on-cal{transform:translateX(-100vw)}
+.page{width:100vw;min-height:100vh;min-height:100dvh;flex-shrink:0}
+
+/* Page dots */
+.page-dots{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:90}
+.page-dot{width:8px;height:8px;border-radius:50%;background:rgba(14,165,233,.25);transition:all .3s}
+.page-dot.active{background:#0ea5e9;width:24px;border-radius:4px}
+
+/* Calendar */
+.cal-header{background:linear-gradient(135deg,#0284c7,#0ea5e9,#38bdf8);padding:20px 20px 24px;border-radius:0 0 28px 28px;box-shadow:0 8px 32px rgba(14,165,233,.25)}
+.cal-header-top{display:flex;justify-content:space-between;align-items:center;padding-top:max(4px,env(safe-area-inset-top))}
+.cal-title{font-weight:900;font-size:22px;color:#fff;letter-spacing:-.3px}
+.cal-back{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);border-radius:14px;padding:8px 16px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;backdrop-filter:blur(8px)}
+.cal-nav{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+.cal-nav-btn{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);border-radius:12px;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+.cal-month{font-weight:800;font-size:18px;color:#fff}
+.cal-summary{display:flex;gap:8px;margin-top:14px}
+.cal-sum-box{flex:1;background:rgba(255,255,255,.15);border-radius:14px;padding:10px 8px;text-align:center;backdrop-filter:blur(4px)}
+.cal-sum-val{font-size:22px;font-weight:900;color:#fff}
+.cal-sum-label{font-size:10px;color:rgba(255,255,255,.65);font-weight:600;margin-top:2px}
+
+.cal-content{padding:20px 16px 100px;max-width:480px;margin:0 auto}
+.cal-grid{background:#fff;border-radius:22px;padding:18px 14px;box-shadow:0 2px 20px rgba(14,165,233,.07),0 1px 4px rgba(0,0,0,.04);margin-bottom:14px}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:8px}
+.cal-weekday{font-size:11px;font-weight:700;color:#94a3b8;padding:6px 0}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;font-size:14px;font-weight:700;color:#0c4a6e;position:relative;transition:all .2s}
+.cal-day.empty{visibility:hidden}
+.cal-day.today{box-shadow:0 0 0 2px #0ea5e9}
+.cal-day.hit{background:rgba(34,197,94,.12);color:#16a34a}
+.cal-day.miss{background:rgba(239,68,68,.08);color:#ef4444}
+.cal-day.future{color:#cbd5e1}
+.cal-day .cal-icon{font-size:10px;margin-top:1px;line-height:1}
+.cal-day.partial{background:rgba(251,191,36,.1);color:#d97706}
+
+.cal-legend{display:flex;gap:16px;justify-content:center;margin-top:14px}
+.cal-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#64748b}
+.cal-legend-dot{width:12px;height:12px;border-radius:6px}
+
+.cal-day-detail{background:#fff;border-radius:22px;padding:18px;box-shadow:0 2px 20px rgba(14,165,233,.07);margin-bottom:14px;display:none}
+.cal-day-detail.show{display:block}
+.cal-detail-title{font-weight:800;font-size:16px;color:#0c4a6e;margin-bottom:12px}
+.cal-detail-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f9ff}
+.cal-detail-row:last-child{border:none}
+.cal-detail-label{font-weight:600;font-size:14px;color:#64748b}
+.cal-detail-val{font-weight:800;font-size:16px}
+.cal-detail-val.hit{color:#16a34a}
+.cal-detail-val.miss{color:#ef4444}
 input[type=number]{-moz-appearance:textfield}
 input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
@@ -117,6 +166,9 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </head>
 <body>
 
+<div class="pages-wrap" id="pagesWrap">
+<div class="page" id="pageDash">
+
 <div class="header">
   <div class="header-top">
     <div>
@@ -130,6 +182,47 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </div>
 
 <div class="content" id="content"></div>
+
+</div>
+<div class="page" id="pageCal">
+
+<div class="cal-header">
+  <div class="cal-header-top">
+    <button class="cal-back" onclick="goPage(0)">← Back</button>
+    <div class="cal-title">📅 Calendar</div>
+    <div style="width:70px"></div>
+  </div>
+  <div class="cal-nav">
+    <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+    <div class="cal-month" id="calMonth"></div>
+    <button class="cal-nav-btn" onclick="calNext()">›</button>
+  </div>
+  <div class="cal-summary" id="calSummary"></div>
+</div>
+
+<div class="cal-content">
+  <div class="cal-grid">
+    <div class="cal-weekdays">
+      <div class="cal-weekday">Mon</div><div class="cal-weekday">Tue</div><div class="cal-weekday">Wed</div>
+      <div class="cal-weekday">Thu</div><div class="cal-weekday">Fri</div><div class="cal-weekday">Sat</div><div class="cal-weekday">Sun</div>
+    </div>
+    <div class="cal-days" id="calDays"></div>
+  </div>
+  <div class="cal-legend">
+    <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(34,197,94,.5)"></div>All goals hit</div>
+    <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(251,191,36,.5)"></div>Partial</div>
+    <div class="cal-legend-item"><div class="cal-legend-dot" style="background:rgba(239,68,68,.4)"></div>Missed</div>
+  </div>
+  <div class="cal-day-detail" id="calDetail"></div>
+</div>
+
+</div>
+</div>
+
+<div class="page-dots">
+  <div class="page-dot active" id="dot0" onclick="goPage(0)"></div>
+  <div class="page-dot" id="dot1" onclick="goPage(1)"></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <div class="modal-bg" id="goalModal">
@@ -342,6 +435,127 @@ function render(){
 load();
 if(!localStorage.getItem(SK))document.getElementById('goalModal').classList.add('show');
 render();
+
+// ─── PAGE SWIPE ───
+let curPage=0, touchX=0, touchY=0, swiping=false;
+function goPage(p){
+  curPage=p;
+  document.getElementById('pagesWrap').classList.toggle('on-cal',p===1);
+  document.getElementById('dot0').classList.toggle('active',p===0);
+  document.getElementById('dot1').classList.toggle('active',p===1);
+  if(p===1) renderCal();
+}
+
+document.addEventListener('touchstart',function(e){
+  if(document.getElementById('goalModal').classList.contains('show'))return;
+  touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;swiping=true;
+},{passive:true});
+
+document.addEventListener('touchend',function(e){
+  if(!swiping)return;swiping=false;
+  const dx=e.changedTouches[0].clientX-touchX;
+  const dy=e.changedTouches[0].clientY-touchY;
+  if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>60){
+    if(dx<0&&curPage===0)goPage(1);
+    else if(dx>0&&curPage===1)goPage(0);
+  }
+},{passive:true});
+
+// ─── CALENDAR ───
+let calYear=new Date().getFullYear(), calMon=new Date().getMonth();
+let selectedDay=null;
+
+function calPrev(){calMon--;if(calMon<0){calMon=11;calYear--}renderCal()}
+function calNext(){
+  const now=new Date();
+  if(calYear>now.getFullYear()||(calYear===now.getFullYear()&&calMon>=now.getMonth()))return;
+  calMon++;if(calMon>11){calMon=0;calYear++}renderCal();
+}
+
+function renderCal(){
+  const now=new Date(), todayStr=dayKey();
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonth').textContent=months[calMon]+' '+calYear;
+
+  // Get first day of month (Mon=0)
+  const firstDay=new Date(calYear,calMon,1);
+  let startDay=firstDay.getDay()-1; if(startDay<0)startDay=6;
+  const daysInMonth=new Date(calYear,calMon+1,0).getDate();
+
+  // Calculate stats for the month
+  let hitDays=0,missDays=0,partialDays=0,activeDays=0;
+  const dayStatuses=[];
+
+  for(let d=1;d<=daysInMonth;d++){
+    const date=new Date(calYear,calMon,d);
+    const dk=dayKey(date);
+    const log=D.dailyLogs[dk]||{};
+    const isFuture=date>now;
+    const isToday=dk===todayStr;
+    const hasAny=EX.some(e=>(log[e.id]||0)>0);
+    const allHit=EX.every(e=>(log[e.id]||0)>=D.goals[e.id]);
+    const someHit=EX.some(e=>(log[e.id]||0)>=D.goals[e.id]);
+
+    let status='none';
+    if(isFuture&&!isToday){status='future'}
+    else if(allHit){status='hit';hitDays++; activeDays++}
+    else if(hasAny){status='partial';partialDays++; activeDays++}
+    else if(!isFuture&&!isToday){status='miss';missDays++; activeDays++}
+    else if(isToday&&hasAny&&!allHit){status='partial'; activeDays++}
+    else if(isToday&&!hasAny){status='today-empty'}
+
+    dayStatuses.push({d,dk,status,isToday,log});
+  }
+
+  // Summary
+  document.getElementById('calSummary').innerHTML=
+    '<div class="cal-sum-box"><div class="cal-sum-val">'+hitDays+'</div><div class="cal-sum-label">Days Hit ✅</div></div>'+
+    '<div class="cal-sum-box"><div class="cal-sum-val">'+partialDays+'</div><div class="cal-sum-label">Partial ⚡</div></div>'+
+    '<div class="cal-sum-box"><div class="cal-sum-val">'+missDays+'</div><div class="cal-sum-label">Missed ❌</div></div>';
+
+  // Render days grid
+  let grid='';
+  for(let i=0;i<startDay;i++) grid+='<div class="cal-day empty"></div>';
+
+  dayStatuses.forEach(ds=>{
+    let cls='cal-day';
+    let icon='';
+    if(ds.isToday) cls+=' today';
+    if(ds.status==='hit'){cls+=' hit';icon='<div class="cal-icon">✅</div>'}
+    else if(ds.status==='miss'){cls+=' miss';icon='<div class="cal-icon">❌</div>'}
+    else if(ds.status==='partial'){cls+=' partial';icon='<div class="cal-icon">⚡</div>'}
+    else if(ds.status==='future'){cls+=' future'}
+
+    grid+='<div class="'+cls+'" onclick="showDayDetail(\''+ds.dk+'\')">'+ds.d+icon+'</div>';
+  });
+
+  document.getElementById('calDays').innerHTML=grid;
+  if(selectedDay)showDayDetail(selectedDay);
+}
+
+function showDayDetail(dk){
+  selectedDay=dk;
+  const log=D.dailyLogs[dk]||{};
+  const date=new Date(dk+'T00:00:00');
+  const dateStr=date.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const hasAny=EX.some(e=>(log[e.id]||0)>0);
+  const runKm=D.runningLogs[dk]||0;
+
+  if(!hasAny&&runKm===0){document.getElementById('calDetail').classList.remove('show');selectedDay=null;return}
+
+  let h='<div class="cal-detail-title">'+dateStr+'</div>';
+  EX.forEach(e=>{
+    const done=log[e.id]||0;
+    const goal=D.goals[e.id];
+    const hit=done>=goal;
+    h+='<div class="cal-detail-row"><div class="cal-detail-label">'+e.icon+' '+e.label+'</div><div class="cal-detail-val '+(done>0?(hit?'hit':'miss'):'')+'">'+done+' / '+goal+'</div></div>';
+  });
+  if(runKm>0) h+='<div class="cal-detail-row"><div class="cal-detail-label">\u{1F3C3} Running</div><div class="cal-detail-val hit">'+runKm.toFixed(1)+' km</div></div>';
+
+  const el=document.getElementById('calDetail');
+  el.innerHTML=h;
+  el.classList.add('show');
+}
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>

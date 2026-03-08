@@ -18,9 +18,8 @@ body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg
 .pages-wrap.on-cal{transform:translateX(-100vw)}
 .page{width:100vw;min-height:100vh;min-height:100dvh;flex-shrink:0}
 
-/* Page dots */
 .page-dots{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:90}
-.page-dot{width:8px;height:8px;border-radius:50%;background:rgba(14,165,233,.25);transition:all .3s}
+.page-dot{width:8px;height:8px;border-radius:50%;background:rgba(14,165,233,.25);transition:all .3s;cursor:pointer}
 .page-dot.active{background:#0ea5e9;width:24px;border-radius:4px}
 
 /* Calendar */
@@ -35,13 +34,12 @@ body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg
 .cal-sum-box{flex:1;background:rgba(255,255,255,.15);border-radius:14px;padding:10px 8px;text-align:center;backdrop-filter:blur(4px)}
 .cal-sum-val{font-size:22px;font-weight:900;color:#fff}
 .cal-sum-label{font-size:10px;color:rgba(255,255,255,.65);font-weight:600;margin-top:2px}
-
 .cal-content{padding:20px 16px 100px;max-width:480px;margin:0 auto}
 .cal-grid{background:#fff;border-radius:22px;padding:18px 14px;box-shadow:0 2px 20px rgba(14,165,233,.07),0 1px 4px rgba(0,0,0,.04);margin-bottom:14px}
 .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:8px}
 .cal-weekday{font-size:11px;font-weight:700;color:#94a3b8;padding:6px 0}
 .cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;font-size:14px;font-weight:700;color:#0c4a6e;position:relative;transition:all .2s}
+.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;font-size:14px;font-weight:700;color:#0c4a6e;position:relative;transition:all .2s;cursor:pointer}
 .cal-day.empty{visibility:hidden}
 .cal-day.today{box-shadow:0 0 0 2px #0ea5e9}
 .cal-day.hit{background:rgba(34,197,94,.12);color:#16a34a}
@@ -49,11 +47,9 @@ body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg
 .cal-day.future{color:#cbd5e1}
 .cal-day .cal-icon{font-size:10px;margin-top:1px;line-height:1}
 .cal-day.partial{background:rgba(251,191,36,.1);color:#d97706}
-
 .cal-legend{display:flex;gap:16px;justify-content:center;margin-top:14px}
 .cal-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#64748b}
 .cal-legend-dot{width:12px;height:12px;border-radius:6px}
-
 .cal-day-detail{background:#fff;border-radius:22px;padding:18px;box-shadow:0 2px 20px rgba(14,165,233,.07);margin-bottom:14px;display:none}
 .cal-day-detail.show{display:block}
 .cal-detail-title{font-weight:800;font-size:16px;color:#0c4a6e;margin-bottom:12px}
@@ -63,6 +59,7 @@ body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg
 .cal-detail-val{font-weight:800;font-size:16px}
 .cal-detail-val.hit{color:#16a34a}
 .cal-detail-val.miss{color:#ef4444}
+
 input[type=number]{-moz-appearance:textfield}
 input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
@@ -80,6 +77,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .mini-bar-label{font-size:10px;color:rgba(255,255,255,.65);font-weight:600;margin-top:4px}
 .all-done{margin-top:12px;background:rgba(34,197,94,.22);border-radius:14px;padding:10px 16px;text-align:center;font-weight:800;font-size:14px;color:#fff;border:1px solid rgba(34,197,94,.4);display:none}
 .all-done.show{display:block}
+.tracking-label{margin-top:8px;text-align:center;font-size:11px;color:rgba(255,255,255,.55);font-weight:600;letter-spacing:.3px}
 
 .content{padding:20px 16px 100px;max-width:480px;margin:0 auto}
 
@@ -179,6 +177,7 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
   <div class="mini-bars" id="miniBars"></div>
   <div class="all-done" id="allDone">🏆 All daily goals complete! Champion.</div>
+  <div class="tracking-label" id="trackingLabel"></div>
 </div>
 
 <div class="content" id="content"></div>
@@ -240,354 +239,822 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 </div>
 
 <script>
-const SK='fittrack-data';
-const EX=[
-  {id:'pushups',label:'Push-ups',icon:'💪',qa:[10,15,20,25]},
-  {id:'pullups',label:'Pull-ups',icon:'🏋️',qa:[5,8,10,12]},
-  {id:'squats',label:'Squats',icon:'🦵',qa:[10,15,20,25]}
+/* ═══════════════════════════════════════════════════════════════════════════
+   FitTrack v3 — Rebuilt with bulletproof LOCAL date logic
+   
+   WHY THE OLD VERSION BROKE:
+   The old dayKey() used Date.toISOString() which returns UTC time.
+   In Sydney (UTC+11), logging reps at 10pm Saturday would create a key
+   for Sunday UTC. This caused cross-day contamination — Saturday's data
+   appeared under Sunday, and the daily reset looked broken.
+   
+   HOW THE NEW VERSION WORKS:
+   - getLocalDateKey() builds YYYY-MM-DD from local year/month/day
+   - All date keys are local timezone, never UTC
+   - rolloverIfNeeded() runs on every app resume and every 30 seconds
+   - It compares the stored "activeDate" against today's local date
+   - If they differ, it finalizes the old day and creates a fresh today
+   - Historical data is keyed by local date and never mutated after the day ends
+   
+   APPLE HEALTH / HEALTHKIT NOTES:
+   This is a static web app hosted on Netlify. Direct Apple Health
+   integration requires native iOS code (Swift/HealthKit). To add this
+   later, wrap this app using Capacitor or build a native Swift layer.
+   The syncService placeholder below marks where health data would
+   be pushed to HealthKit. The data model (per-day logs with timestamps)
+   is already structured for easy export.
+   
+   TODO: Future Apple Health integration points:
+   - syncService.saveWorkoutSession(dateKey, exerciseData)
+   - syncService.syncDailyActivity(dateKey, totalReps, duration)
+   - syncService.exportToHealthKit(historyRange)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const SK = 'fittrack-v3'; // New storage key to avoid conflicts with old data
+const EX = [
+  { id: 'pushups', label: 'Push-ups', icon: '💪', qa: [10, 15, 20, 25] },
+  { id: 'pullups', label: 'Pull-ups', icon: '🏋️', qa: [5, 8, 10, 12] },
+  { id: 'squats',  label: 'Squats',  icon: '🦵', qa: [10, 15, 20, 25] }
 ];
 
-const ILL={
-  pushups:'<svg viewBox="0 0 80 50" width="56" height="36" fill="none"><rect x="5" y="38" width="70" height="4" rx="2" fill="rgba(56,189,248,.15)"/><line x1="20" y1="28" x2="60" y2="24" stroke="#0ea5e9" stroke-width="3.5" stroke-linecap="round"/><circle cx="17" cy="22" r="6" fill="#38bdf8"/><line x1="18" y1="35" x2="14" y2="38" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="58" y1="30" x2="62" y2="38" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="20" y1="28" x2="16" y2="36" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="22" y1="28" x2="26" y2="36" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/></svg>',
-  pullups:'<svg viewBox="0 0 80 56" width="56" height="40" fill="none"><rect x="10" y="4" width="60" height="4" rx="2" fill="rgba(56,189,248,.25)"/><line x1="30" y1="8" x2="30" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="50" y1="8" x2="50" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="20" r="6" fill="#38bdf8"/><line x1="40" y1="26" x2="40" y2="42" stroke="#0ea5e9" stroke-width="3.5" stroke-linecap="round"/><line x1="40" y1="42" x2="34" y2="52" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="42" x2="46" y2="52" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="30" x2="30" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="30" x2="50" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/></svg>',
-  squats:'<svg viewBox="0 0 80 58" width="56" height="40" fill="none"><circle cx="40" cy="10" r="6" fill="#38bdf8"/><line x1="40" y1="16" x2="40" y2="32" stroke="#0ea5e9" stroke-width="3.5" stroke-linecap="round"/><line x1="40" y1="32" x2="30" y2="44" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="32" x2="50" y2="44" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="30" y1="44" x2="28" y2="54" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="50" y1="44" x2="52" y2="54" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="22" x2="30" y2="28" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="22" x2="50" y2="28" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/></svg>'
+const ILL = {
+  pushups: '<svg viewBox="0 0 80 50" width="56" height="36" fill="none"><rect x="5" y="38" width="70" height="4" rx="2" fill="rgba(56,189,248,.15)"/><line x1="20" y1="28" x2="60" y2="24" stroke="#0ea5e9" stroke-width="3.5" stroke-linecap="round"/><circle cx="17" cy="22" r="6" fill="#38bdf8"/><line x1="18" y1="35" x2="14" y2="38" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="58" y1="30" x2="62" y2="38" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="20" y1="28" x2="16" y2="36" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="22" y1="28" x2="26" y2="36" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/></svg>',
+  pullups: '<svg viewBox="0 0 80 56" width="56" height="40" fill="none"><rect x="10" y="4" width="60" height="4" rx="2" fill="rgba(56,189,248,.25)"/><line x1="30" y1="8" x2="30" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="50" y1="8" x2="50" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="20" r="6" fill="#38bdf8"/><line x1="40" y1="26" x2="40" y2="42" stroke="#0ea5e9" stroke-width="3.5" stroke-linecap="round"/><line x1="40" y1="42" x2="34" y2="52" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="42" x2="46" y2="52" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="30" x2="30" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="30" x2="50" y2="16" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/></svg>',
+  squats: '<svg viewBox="0 0 80 58" width="56" height="40" fill="none"><circle cx="40" cy="10" r="6" fill="#38bdf8"/><line x1="40" y1="16" x2="40" y2="32" stroke="#0ea5e9" stroke-width="3.5" stroke-linecap="round"/><line x1="40" y1="32" x2="30" y2="44" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="32" x2="50" y2="44" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="30" y1="44" x2="28" y2="54" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="50" y1="44" x2="52" y2="54" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="22" x2="30" y2="28" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="22" x2="50" y2="28" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/></svg>'
 };
 
-function dayKey(d){d=d||new Date();return d.toISOString().split('T')[0]}
-function yearKey(d){return(d||new Date()).getFullYear().toString()}
-function weekKey(d){d=new Date(d||new Date());d.setHours(0,0,0,0);const dy=d.getDay(),df=d.getDate()-dy+(dy===0?-6:1);d.setDate(df);return d.toISOString().split('T')[0]}
+/* ═══════════════════════════════════════════════════════════════════════════
+   CORE DATE FUNCTIONS — All use LOCAL time, never UTC
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-function defData(){return{goals:{pushups:100,pullups:30,squats:80},goalWeekStart:weekKey(),dailyLogs:{},runningLogs:{},dismissed:{}}}
-
-let D;
-function load(){try{const s=localStorage.getItem(SK);D=s?{...defData(),...JSON.parse(s)}:defData()}catch(e){D=defData()}}
-function save(){localStorage.setItem(SK,JSON.stringify(D))}
-
-function ringH(id,cur,goal){
-  const sz=130,sw=10,r=(sz-sw)/2,c=2*Math.PI*r;
-  const p=goal>0?Math.min(1,cur/goal):0,o=c-p*c,dn=cur>=goal&&goal>0;
-  return '<div class="ring-wrap"><svg width="'+sz+'" height="'+sz+'"><circle cx="65" cy="65" r="'+r+'" class="ring-bg" stroke-width="'+sw+'"/><circle cx="65" cy="65" r="'+r+'" class="ring-fg'+(dn?' done':'')+'" stroke-width="'+sw+'" stroke-dasharray="'+c+'" stroke-dashoffset="'+o+'"/></svg><div class="ring-text"><span class="ring-num'+(dn?' done':'')+'">'+cur+'</span><span class="ring-goal">/ '+goal+'</span></div></div>';
+/**
+ * getLocalDateKey(date?) → "YYYY-MM-DD" in LOCAL timezone
+ * This is the single source of truth for date keys.
+ * NEVER use toISOString() for date keys — it returns UTC.
+ */
+function getLocalDateKey(d) {
+  d = d || new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
 }
 
-let tt;
-function toast(m){const e=document.getElementById('toast');e.textContent='\u{1F525} '+m;e.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),1800)}
+/**
+ * getLocalWeekKey(date?) → "YYYY-MM-DD" of Monday of that week (local time)
+ */
+function getLocalWeekKey(d) {
+  d = new Date(d || new Date());
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay(); // 0=Sun, 1=Mon...
+  const diff = d.getDate() - dow + (dow === 0 ? -6 : 1); // Adjust to Monday
+  d.setDate(diff);
+  return getLocalDateKey(d);
+}
 
-function logEx(id,n){
-  n=parseInt(n);if(!(n>0))return;
-  const t=dayKey();if(!D.dailyLogs[t])D.dailyLogs[t]={};
-  const prev=D.dailyLogs[t][id]||0;D.dailyLogs[t][id]=prev+n;save();
-  const total=D.dailyLogs[t][id],goal=D.goals[id],ex=EX.find(e=>e.id===id);
-  if(total>=goal&&prev<goal){toast(ex.label+' goal smashed! \u{1F389}')}
-  else{const p=['Nice set!','Keep pushing!','Solid work!','Strong! \u{1F4AA}','Let\'s go!'];toast(p[Math.floor(Math.random()*p.length)])}
+/**
+ * getLocalYearKey(date?) → "YYYY"
+ */
+function getLocalYearKey(d) {
+  return (d || new Date()).getFullYear().toString();
+}
+
+/**
+ * parseLocalDate(dateKey) → Date object at midnight local time
+ * Use this instead of new Date(dateKey) which can shift timezone
+ */
+function parseLocalDate(dk) {
+  const parts = dk.split('-');
+  return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DATA MODEL & PERSISTENCE
+   
+   Structure:
+   {
+     goals: { pushups: 100, pullups: 30, squats: 80 },
+     goalWeekStart: "2026-03-02",    // Monday of goal week
+     activeDate: "2026-03-08",       // Last known active date
+     dailyLogs: {
+       "2026-03-07": { pushups: 100, pullups: 30, squats: 80 },
+       "2026-03-08": { pushups: 0, pullups: 0, squats: 0 }
+     },
+     runningLogs: {
+       "2026-03-07": 5.2,
+       "2026-03-08": 0
+     },
+     dismissed: {}
+   }
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function defaultData() {
+  return {
+    goals: { pushups: 100, pullups: 30, squats: 80 },
+    goalWeekStart: getLocalWeekKey(),
+    activeDate: getLocalDateKey(),
+    dailyLogs: {},
+    runningLogs: {},
+    dismissed: {}
+  };
+}
+
+let D;
+
+function loadData() {
+  try {
+    // Try new storage key first
+    let s = localStorage.getItem(SK);
+    if (s) {
+      D = { ...defaultData(), ...JSON.parse(s) };
+    } else {
+      // Try to migrate from old storage key
+      const oldData = localStorage.getItem('fittrack-data');
+      if (oldData) {
+        const parsed = JSON.parse(oldData);
+        D = { ...defaultData(), ...parsed };
+        // Save under new key
+        saveData();
+        console.log('[FitTrack] Migrated data from old storage key');
+      } else {
+        D = defaultData();
+      }
+    }
+  } catch (e) {
+    console.error('[FitTrack] Load error:', e);
+    D = defaultData();
+  }
+}
+
+function saveData() {
+  try {
+    localStorage.setItem(SK, JSON.stringify(D));
+  } catch (e) {
+    console.error('[FitTrack] Save error:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DAILY ROLLOVER SYSTEM
+   
+   This is the core fix. It runs:
+   1. On initial app load
+   2. Every time the app becomes visible (switching back from another app)
+   3. Every 30 seconds as a safety net (catches midnight crossover)
+   
+   Logic:
+   - Compare D.activeDate (last date the app was used) with today
+   - If they differ, today is a new day
+   - The old day's data stays frozen under its date key
+   - A fresh record is created for today with 0 reps
+   - D.activeDate is updated to today
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ensureTodayExists() — Makes sure today has a log entry
+ * Called before any read or write to daily data
+ */
+function ensureTodayExists() {
+  const today = getLocalDateKey();
+  if (!D.dailyLogs[today]) {
+    D.dailyLogs[today] = {};
+    EX.forEach(function(e) { D.dailyLogs[today][e.id] = 0; });
+  }
+  // Ensure each exercise key exists (in case exercises were added later)
+  EX.forEach(function(e) {
+    if (typeof D.dailyLogs[today][e.id] !== 'number') {
+      D.dailyLogs[today][e.id] = 0;
+    }
+  });
+}
+
+/**
+ * rolloverIfNeeded() — The main daily reset function
+ * Returns true if a rollover happened (new day detected)
+ */
+function rolloverIfNeeded() {
+  const today = getLocalDateKey();
+  const lastActive = D.activeDate || today;
+
+  if (lastActive === today) {
+    // Same day — just make sure today's record exists
+    ensureTodayExists();
+    return false;
+  }
+
+  // ═══ NEW DAY DETECTED ═══
+  console.log('[FitTrack] Day rollover: ' + lastActive + ' → ' + today);
+
+  // Step 1: The old day's data is already frozen in dailyLogs[lastActive]
+  // Nothing to do — it stays exactly as it was logged
+
+  // Step 2: Create fresh record for today
+  D.activeDate = today;
+  ensureTodayExists();
+
+  // Step 3: Save immediately so the rollover persists
+  saveData();
+
+  // Step 4: Sync placeholder for future Apple Health integration
+  // TODO: syncService.finalizeDay(lastActive, D.dailyLogs[lastActive], D.goals);
+  // TODO: syncService.saveWorkoutSession(lastActive, { exercises: D.dailyLogs[lastActive], running: D.runningLogs[lastActive] });
+
+  return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TODAY'S DATA ACCESSORS
+   These always read from today's local date key, never from a stale reference
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function getTodayLog() {
+  const today = getLocalDateKey();
+  ensureTodayExists();
+  return D.dailyLogs[today];
+}
+
+function getTodayKey() {
+  return getLocalDateKey();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXERCISE LOGGING — Always writes to today's record only
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function logEx(id, n) {
+  n = parseInt(n);
+  if (!(n > 0)) return;
+
+  // Always check for rollover before logging
+  rolloverIfNeeded();
+
+  const today = getTodayKey();
+  const prev = D.dailyLogs[today][id] || 0;
+  D.dailyLogs[today][id] = prev + n;
+  saveData();
+
+  const total = D.dailyLogs[today][id];
+  const goal = D.goals[id];
+  const ex = EX.find(function(e) { return e.id === id; });
+
+  if (total >= goal && prev < goal) {
+    showToast(ex.label + ' goal smashed! 🎉');
+  } else {
+    var phrases = ['Nice set!', 'Keep pushing!', 'Solid work!', 'Strong! 💪', 'Let\'s go!'];
+    showToast(phrases[Math.floor(Math.random() * phrases.length)]);
+  }
   render();
 }
 
-function addInp(id){const i=document.getElementById('inp-'+id);logEx(id,i.value);i.value=''}
+function addInp(id) {
+  var i = document.getElementById('inp-' + id);
+  logEx(id, i.value);
+  i.value = '';
+}
 
-function logRun(km){km=parseFloat(km);if(!(km>0))return;const t=dayKey();D.runningLogs[t]=(D.runningLogs[t]||0)+km;save();toast('+'+km+'km logged! \u{1F3C3}');render()}
-function addRunInp(){const i=document.getElementById('inp-run');logRun(i.value);i.value=''}
+function logRun(km) {
+  km = parseFloat(km);
+  if (!(km > 0)) return;
+  rolloverIfNeeded();
+  var today = getTodayKey();
+  D.runningLogs[today] = (D.runningLogs[today] || 0) + km;
+  saveData();
+  showToast('+' + km + 'km logged! 🏃');
+  render();
+}
 
-function openGoalModal(){
-  document.getElementById('goalPushups').value=D.goals.pushups;
-  document.getElementById('goalPullups').value=D.goals.pullups;
-  document.getElementById('goalSquats').value=D.goals.squats;
+function addRunInp() {
+  var i = document.getElementById('inp-run');
+  logRun(i.value);
+  i.value = '';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var toastTimer;
+function showToast(m) {
+  var e = document.getElementById('toast');
+  e.textContent = '🔥 ' + m;
+  e.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { e.classList.remove('show'); }, 1800);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROGRESS RING
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function ringH(id, cur, goal) {
+  var sz = 130, sw = 10, r = (sz - sw) / 2, c = 2 * Math.PI * r;
+  var p = goal > 0 ? Math.min(1, cur / goal) : 0;
+  var o = c - p * c;
+  var dn = cur >= goal && goal > 0;
+  return '<div class="ring-wrap"><svg width="' + sz + '" height="' + sz + '"><circle cx="65" cy="65" r="' + r + '" class="ring-bg" stroke-width="' + sw + '"/><circle cx="65" cy="65" r="' + r + '" class="ring-fg' + (dn ? ' done' : '') + '" stroke-width="' + sw + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + o + '"/></svg><div class="ring-text"><span class="ring-num' + (dn ? ' done' : '') + '">' + cur + '</span><span class="ring-goal">/ ' + goal + '</span></div></div>';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GOALS MODAL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function openGoalModal() {
+  document.getElementById('goalPushups').value = D.goals.pushups;
+  document.getElementById('goalPullups').value = D.goals.pullups;
+  document.getElementById('goalSquats').value = D.goals.squats;
   document.getElementById('goalModal').classList.add('show');
 }
 
-function saveGoals(){
-  D.goals.pushups=parseInt(document.getElementById('goalPushups').value)||100;
-  D.goals.pullups=parseInt(document.getElementById('goalPullups').value)||30;
-  D.goals.squats=parseInt(document.getElementById('goalSquats').value)||80;
-  D.goalWeekStart=weekKey();D.dismissed={};save();
-  document.getElementById('goalModal').classList.remove('show');render();
+function saveGoals() {
+  D.goals.pushups = parseInt(document.getElementById('goalPushups').value) || 100;
+  D.goals.pullups = parseInt(document.getElementById('goalPullups').value) || 30;
+  D.goals.squats = parseInt(document.getElementById('goalSquats').value) || 80;
+  D.goalWeekStart = getLocalWeekKey();
+  D.dismissed = {};
+  saveData();
+  document.getElementById('goalModal').classList.remove('show');
+  render();
 }
 
-function getSugg(){
-  const wk=weekKey(),gs=D.goalWeekStart;if(!gs)return[];
-  if(Math.floor((new Date()-new Date(gs))/(864e5))<7)return[];
-  const out=[];
-  EX.forEach(ex=>{
-    if(D.dismissed[ex.id+'-'+wk])return;
-    let hit=0;for(let i=0;i<7;i++){const d=new Date(gs);d.setDate(d.getDate()+i);const l=D.dailyLogs[dayKey(d)]||{};if((l[ex.id]||0)>=D.goals[ex.id])hit++}
-    const cur=D.goals[ex.id];
-    if(hit/7>=.7){const inc=Math.max(1,Math.round(cur*.1));out.push({id:ex.id,label:ex.label,icon:ex.icon,msg:'You hit your '+ex.label.toLowerCase()+' goal '+hit+'/7 days. Increase from '+cur+' to '+(cur+inc)+'?',ng:cur+inc,up:true})}
-    else{out.push({id:ex.id,label:ex.label,icon:ex.icon,msg:'Your '+ex.label.toLowerCase()+' goal was challenging ('+hit+'/7 days). Keep at '+cur+'?',ng:cur,up:false})}
-  });return out;
+/* ═══════════════════════════════════════════════════════════════════════════
+   WEEKLY SUGGESTIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function getSugg() {
+  var wk = getLocalWeekKey();
+  var gs = D.goalWeekStart;
+  if (!gs) return [];
+  var gsDate = parseLocalDate(gs);
+  var daysSince = Math.floor((new Date() - gsDate) / (1000 * 60 * 60 * 24));
+  if (daysSince < 7) return [];
+
+  var out = [];
+  EX.forEach(function(ex) {
+    if (D.dismissed[ex.id + '-' + wk]) return;
+    var hit = 0;
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(gsDate);
+      d.setDate(d.getDate() + i);
+      var dk = getLocalDateKey(d);
+      var l = D.dailyLogs[dk] || {};
+      if ((l[ex.id] || 0) >= D.goals[ex.id]) hit++;
+    }
+    var cur = D.goals[ex.id];
+    if (hit / 7 >= 0.7) {
+      var inc = Math.max(1, Math.round(cur * 0.1));
+      out.push({ id: ex.id, label: ex.label, icon: ex.icon,
+        msg: 'You hit your ' + ex.label.toLowerCase() + ' goal ' + hit + '/7 days. Increase from ' + cur + ' to ' + (cur + inc) + '?',
+        ng: cur + inc, up: true });
+    } else {
+      out.push({ id: ex.id, label: ex.label, icon: ex.icon,
+        msg: 'Your ' + ex.label.toLowerCase() + ' goal was challenging (' + hit + '/7 days). Keep at ' + cur + '?',
+        ng: cur, up: false });
+    }
+  });
+  return out;
 }
 
-function acceptS(id,ng){const wk=weekKey();D.goals[id]=ng;D.goalWeekStart=wk;D.dismissed[id+'-'+wk]=true;save();render()}
-function dismissS(id){const wk=weekKey();D.goalWeekStart=weekKey();D.dismissed[id+'-'+wk]=true;save();render()}
-
-function stats(){
-  const t=dayKey(),wk=weekKey(),yr=yearKey(),tl=D.dailyLogs[t]||{};
-  const wT={},yT={};EX.forEach(e=>{wT[e.id]=0;yT[e.id]=0});
-  Object.entries(D.dailyLogs).forEach(([d,l])=>{EX.forEach(e=>{if(weekKey(new Date(d))===wk)wT[e.id]+=(l[e.id]||0);if(yearKey(new Date(d))===yr)yT[e.id]+=(l[e.id]||0)})});
-  let rT=D.runningLogs[t]||0,rW=0,rY=0;
-  Object.entries(D.runningLogs).forEach(([d,k])=>{if(weekKey(new Date(d))===wk)rW+=k;if(yearKey(new Date(d))===yr)rY+=k});
-  return{tl,wT,yT,rT,rW,rY,twk:EX.reduce((s,e)=>s+wT[e.id],0),tyr:EX.reduce((s,e)=>s+yT[e.id],0)};
+function acceptS(id, ng) {
+  var wk = getLocalWeekKey();
+  D.goals[id] = ng;
+  D.goalWeekStart = wk;
+  D.dismissed[id + '-' + wk] = true;
+  saveData();
+  render();
 }
 
-function getReminders(){
-  const hr=new Date().getHours();
-  const t=dayKey(),tl=D.dailyLogs[t]||{};
-  const totalDone=EX.reduce((s,e)=>s+(tl[e.id]||0),0);
-  const totalGoal=EX.reduce((s,e)=>s+D.goals[e.id],0);
-  const pct=totalGoal>0?totalDone/totalGoal:0;
-  const allDone=EX.every(e=>(tl[e.id]||0)>=D.goals[e.id]);
-  const reminders=[];
+function dismissS(id) {
+  var wk = getLocalWeekKey();
+  D.goalWeekStart = wk;
+  D.dismissed[id + '-' + wk] = true;
+  saveData();
+  render();
+}
 
-  // Check streak (consecutive days with all goals met)
-  let streak=0;
-  for(let i=1;i<=30;i++){
-    const d=new Date();d.setDate(d.getDate()-i);
-    const log=D.dailyLogs[dayKey(d)]||{};
-    if(EX.every(e=>(log[e.id]||0)>=D.goals[e.id]))streak++;
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATISTICS — Computed from dailyLogs using LOCAL date keys
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function computeStats() {
+  var today = getTodayKey();
+  var wk = getLocalWeekKey();
+  var yr = getLocalYearKey();
+  var tl = getTodayLog();
+
+  var wT = {}, yT = {};
+  EX.forEach(function(e) { wT[e.id] = 0; yT[e.id] = 0; });
+
+  Object.keys(D.dailyLogs).forEach(function(dk) {
+    var log = D.dailyLogs[dk];
+    var d = parseLocalDate(dk);
+    var dWeek = getLocalWeekKey(d);
+    var dYear = getLocalYearKey(d);
+    EX.forEach(function(e) {
+      if (dWeek === wk) wT[e.id] += (log[e.id] || 0);
+      if (dYear === yr) yT[e.id] += (log[e.id] || 0);
+    });
+  });
+
+  var rT = D.runningLogs[today] || 0, rW = 0, rY = 0;
+  Object.keys(D.runningLogs).forEach(function(dk) {
+    var d = parseLocalDate(dk);
+    if (getLocalWeekKey(d) === wk) rW += D.runningLogs[dk];
+    if (getLocalYearKey(d) === yr) rY += D.runningLogs[dk];
+  });
+
+  return {
+    tl: tl, wT: wT, yT: yT, rT: rT, rW: rW, rY: rY,
+    twk: EX.reduce(function(s, e) { return s + wT[e.id]; }, 0),
+    tyr: EX.reduce(function(s, e) { return s + yT[e.id]; }, 0)
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REMINDERS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function getReminders() {
+  var hr = new Date().getHours();
+  var tl = getTodayLog();
+  var totalDone = EX.reduce(function(s, e) { return s + (tl[e.id] || 0); }, 0);
+  var totalGoal = EX.reduce(function(s, e) { return s + D.goals[e.id]; }, 0);
+  var pct = totalGoal > 0 ? totalDone / totalGoal : 0;
+  var allDone = EX.every(function(e) { return (tl[e.id] || 0) >= D.goals[e.id]; });
+  var reminders = [];
+
+  // Streak
+  var streak = 0;
+  for (var i = 1; i <= 30; i++) {
+    var d = new Date(); d.setDate(d.getDate() - i);
+    var log = D.dailyLogs[getLocalDateKey(d)] || {};
+    if (EX.every(function(e) { return (log[e.id] || 0) >= D.goals[e.id]; })) streak++;
     else break;
   }
 
-  if(allDone){
-    if(streak>=2) reminders.push({type:'streak',icon:'\u{1F525}',title:streak+' day streak!',msg:'You\'re on fire! All goals smashed '+streak+' days in a row. Keep it going!'});
-    return reminders; // No nagging if done
+  if (allDone) {
+    if (streak >= 2) reminders.push({ type: 'streak', icon: '🔥', title: streak + ' day streak!', msg: 'You\'re on fire! All goals smashed ' + streak + ' days in a row.' });
+    return reminders;
   }
 
-  // Morning (5am-11am) - haven't started
-  if(hr>=5 && hr<12 && totalDone===0){
-    const msgs=['Rise and grind! Your goals are waiting \u2014 start with a quick set.','Good morning! Fresh day, fresh goals. Let\'s get moving!','New day, new gains. Time to log your first set!'];
-    reminders.push({type:'morning',icon:'\u2600\uFE0F',title:'Good morning!',msg:msgs[Math.floor(Math.random()*msgs.length)]});
+  if (hr >= 5 && hr < 12 && totalDone === 0) {
+    var msgs = ['Rise and grind! Your goals are waiting.', 'Good morning! Fresh day, fresh goals. Let\'s go!', 'New day, new gains. Time to log your first set!'];
+    reminders.push({ type: 'morning', icon: '☀️', title: 'Good morning!', msg: msgs[Math.floor(Math.random() * msgs.length)] });
   }
 
-  // Midday (12pm-5pm) - partial progress
-  if(hr>=12 && hr<17 && totalDone>0 && pct<1){
-    const closest=EX.reduce((best,e)=>{const p=(tl[e.id]||0)/D.goals[e.id];return p>best.p&&p<1?{id:e.id,label:e.label,p,left:D.goals[e.id]-(tl[e.id]||0)}:best},{p:0,label:'',left:0});
-    if(closest.label) reminders.push({type:'nudge',icon:'\u{1F4AA}',title:'Keep pushing!',msg:'You\'re '+Math.round(pct*100)+'% through today\'s goals. Only '+closest.left+' '+closest.label.toLowerCase()+' left to finish that one!'});
+  if (hr >= 12 && hr < 17 && totalDone > 0 && pct < 1) {
+    var closest = EX.reduce(function(best, e) {
+      var p = (tl[e.id] || 0) / D.goals[e.id];
+      return p > best.p && p < 1 ? { id: e.id, label: e.label, p: p, left: D.goals[e.id] - (tl[e.id] || 0) } : best;
+    }, { p: 0, label: '', left: 0 });
+    if (closest.label) reminders.push({ type: 'nudge', icon: '💪', title: 'Keep pushing!', msg: 'You\'re ' + Math.round(pct * 100) + '% through today. Only ' + closest.left + ' ' + closest.label.toLowerCase() + ' left!' });
   }
 
-  // Midday - haven't started
-  if(hr>=12 && hr<17 && totalDone===0){
-    reminders.push({type:'nudge',icon:'\u{1F3AF}',title:'Afternoon check-in',msg:'You haven\'t logged any reps today yet. Even one set counts \u2014 get started!'});
+  if (hr >= 12 && hr < 17 && totalDone === 0) {
+    reminders.push({ type: 'nudge', icon: '🎯', title: 'Afternoon check-in', msg: 'No reps logged yet today. Even one set counts — get started!' });
   }
 
-  // Evening (5pm-11pm) - not done
-  if(hr>=17 && hr<23 && pct<1){
-    if(totalDone===0){
-      reminders.push({type:'evening',icon:'\u23F0',title:'Don\'t miss today!',msg:'No reps logged yet. The day isn\'t over \u2014 squeeze in a few sets before bed!'});
+  if (hr >= 17 && hr < 23 && pct < 1) {
+    if (totalDone === 0) {
+      reminders.push({ type: 'evening', icon: '⏰', title: 'Don\'t miss today!', msg: 'No reps logged yet. Squeeze in a few sets before bed!' });
     } else {
-      const left=totalGoal-totalDone;
-      reminders.push({type:'evening',icon:'\u{1F3C1}',title:'Almost there!',msg:'You\'ve done '+totalDone+' reps today. Just '+left+' more to hit all your goals. Finish strong!'});
+      var left = totalGoal - totalDone;
+      reminders.push({ type: 'evening', icon: '🏁', title: 'Almost there!', msg: 'You\'ve done ' + totalDone + ' reps. Just ' + left + ' more to finish. Go!' });
     }
   }
 
-  // Streak reminder
-  if(streak>=2 && !allDone){
-    reminders.push({type:'streak',icon:'\u{1F525}',title:'Protect your '+streak+' day streak!',msg:'Don\'t break the chain \u2014 hit your goals today to keep it alive.'});
+  if (streak >= 2 && !allDone) {
+    reminders.push({ type: 'streak', icon: '🔥', title: 'Protect your ' + streak + ' day streak!', msg: 'Don\'t break the chain — hit your goals today.' });
   }
 
   return reminders;
 }
 
-function render(){
-  const t=dayKey(),tl=D.dailyLogs[t]||{},s=stats();
-  document.getElementById('dateDisplay').textContent=new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN RENDER — Dashboard page
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-  let mb='',allDn=true;
-  EX.forEach(e=>{const dn=tl[e.id]||0,g=D.goals[e.id],p=g>0?Math.min(1,dn/g):0;if(dn<g)allDn=false;
-    mb+='<div class="mini-bar"><div class="mini-bar-num">'+dn+'/'+g+'</div><div class="mini-bar-track"><div class="mini-bar-fill'+(p>=1?' done':'')+'" style="width:'+p*100+'%"></div></div><div class="mini-bar-label">'+e.label+'</div></div>'});
-  document.getElementById('miniBars').innerHTML=mb;
-  document.getElementById('allDone').classList.toggle('show',allDn);
+function render() {
+  var today = getTodayKey();
+  var tl = getTodayLog();
+  var s = computeStats();
+  var now = new Date();
 
-  let h='';
+  // Header date
+  document.getElementById('dateDisplay').textContent = now.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Tracking label — shows which date is active
+  document.getElementById('trackingLabel').textContent = 'Tracking: ' + now.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' });
+
+  // Mini bars
+  var mb = '', allDn = true;
+  EX.forEach(function(e) {
+    var dn = tl[e.id] || 0, g = D.goals[e.id];
+    var p = g > 0 ? Math.min(1, dn / g) : 0;
+    if (dn < g) allDn = false;
+    mb += '<div class="mini-bar"><div class="mini-bar-num">' + dn + '/' + g + '</div><div class="mini-bar-track"><div class="mini-bar-fill' + (p >= 1 ? ' done' : '') + '" style="width:' + (p * 100) + '%"></div></div><div class="mini-bar-label">' + e.label + '</div></div>';
+  });
+  document.getElementById('miniBars').innerHTML = mb;
+  document.getElementById('allDone').classList.toggle('show', allDn);
+
+  var h = '';
 
   // Reminders
-  const rems=getReminders();
-  rems.forEach(r=>{h+='<div class="reminder '+r.type+'"><div class="reminder-icon">'+r.icon+'</div><div class="reminder-text"><div class="reminder-title">'+r.title+'</div>'+r.msg+'</div></div>'});
+  var rems = getReminders();
+  rems.forEach(function(r) {
+    h += '<div class="reminder ' + r.type + '"><div class="reminder-icon">' + r.icon + '</div><div class="reminder-text"><div class="reminder-title">' + r.title + '</div>' + r.msg + '</div></div>';
+  });
 
-  const sg=getSugg();
-  if(sg.length){
-    h+='<div class="suggest-banner"><div class="suggest-title">\u23F0 Weekly Review</div>';
-    sg.forEach(s=>{h+='<div class="suggest-item"><div class="suggest-msg">'+s.icon+' '+s.msg+'</div><div class="suggest-btns">';
-      if(s.up)h+='<button class="suggest-accept" onclick="acceptS(\''+s.id+'\','+s.ng+')">Increase \u2191</button>';
-      h+='<button class="suggest-dismiss" onclick="dismissS(\''+s.id+'\')">Keep Current</button></div></div>'});
-    h+='</div>';
+  // Weekly suggestions
+  var sg = getSugg();
+  if (sg.length) {
+    h += '<div class="suggest-banner"><div class="suggest-title">⏰ Weekly Review</div>';
+    sg.forEach(function(s) {
+      h += '<div class="suggest-item"><div class="suggest-msg">' + s.icon + ' ' + s.msg + '</div><div class="suggest-btns">';
+      if (s.up) h += '<button class="suggest-accept" onclick="acceptS(\'' + s.id + '\',' + s.ng + ')">Increase ↑</button>';
+      h += '<button class="suggest-dismiss" onclick="dismissS(\'' + s.id + '\')">Keep Current</button></div></div>';
+    });
+    h += '</div>';
   }
 
-  EX.forEach(e=>{const dn=tl[e.id]||0,g=D.goals[e.id],cp=dn>=g&&g>0;
-    h+='<div class="card'+(cp?' complete':'')+'"><div class="card-header"><div>'+ILL[e.id]+'</div><span class="card-title">'+e.label+'</span></div>';
-    h+=ringH(e.id,dn,g);
-    if(cp)h+='<div class="goal-badge">\u2705 Goal Complete!</div>';
-    h+='<div class="quick-adds">'+e.qa.map(n=>'<button class="quick-btn" onclick="logEx(\''+e.id+'\','+n+')">+'+n+'</button>').join('')+'</div>';
-    h+='<div class="input-row"><input type="number" id="inp-'+e.id+'" placeholder="Custom" min="1" onkeydown="if(event.key===\'Enter\')addInp(\''+e.id+'\')"><button class="add-btn" onclick="addInp(\''+e.id+'\')">Add</button></div></div>'});
+  // Exercise cards
+  EX.forEach(function(e) {
+    var dn = tl[e.id] || 0, g = D.goals[e.id], cp = dn >= g && g > 0;
+    h += '<div class="card' + (cp ? ' complete' : '') + '"><div class="card-header"><div>' + ILL[e.id] + '</div><span class="card-title">' + e.label + '</span></div>';
+    h += ringH(e.id, dn, g);
+    if (cp) h += '<div class="goal-badge">✅ Goal Complete!</div>';
+    h += '<div class="quick-adds">' + e.qa.map(function(n) { return '<button class="quick-btn" onclick="logEx(\'' + e.id + '\',' + n + ')">+' + n + '</button>'; }).join('') + '</div>';
+    h += '<div class="input-row"><input type="number" id="inp-' + e.id + '" placeholder="Custom" min="1" onkeydown="if(event.key===\'Enter\')addInp(\'' + e.id + '\')"><button class="add-btn" onclick="addInp(\'' + e.id + '\')">Add</button></div></div>';
+  });
 
-  h+='<div class="card"><div class="run-header"><div class="run-icon">\u{1F3C3}</div><div><div class="run-title">Running</div><div class="run-sub">Track your kilometres</div></div></div>';
-  h+='<div class="run-stats">';
-  [['Today',s.rT],['This Week',s.rW],['This Year',s.rY]].forEach(([l,v])=>{h+='<div class="run-stat"><div class="run-stat-label">'+l+'</div><div class="run-stat-val">'+v.toFixed(1)+'</div><div class="run-stat-unit">km</div></div>'});
-  h+='</div><div class="quick-adds"><button class="quick-btn" onclick="logRun(3)">+3km</button><button class="quick-btn" onclick="logRun(5)">+5km</button><button class="quick-btn" onclick="logRun(10)">+10km</button></div>';
-  h+='<div class="input-row" style="margin-top:8px"><input type="number" step="0.1" id="inp-run" placeholder="km" min="0.1" onkeydown="if(event.key===\'Enter\')addRunInp()"><button class="add-btn" onclick="addRunInp()">Add</button></div></div>';
+  // Running card
+  h += '<div class="card"><div class="run-header"><div class="run-icon">🏃</div><div><div class="run-title">Running</div><div class="run-sub">Track your kilometres</div></div></div>';
+  h += '<div class="run-stats">';
+  [['Today', s.rT], ['This Week', s.rW], ['This Year', s.rY]].forEach(function(pair) {
+    h += '<div class="run-stat"><div class="run-stat-label">' + pair[0] + '</div><div class="run-stat-val">' + pair[1].toFixed(1) + '</div><div class="run-stat-unit">km</div></div>';
+  });
+  h += '</div>';
+  h += '<div class="quick-adds"><button class="quick-btn" onclick="logRun(3)">+3km</button><button class="quick-btn" onclick="logRun(5)">+5km</button><button class="quick-btn" onclick="logRun(10)">+10km</button></div>';
+  h += '<div class="input-row" style="margin-top:8px"><input type="number" step="0.1" id="inp-run" placeholder="km" min="0.1" onkeydown="if(event.key===\'Enter\')addRunInp()"><button class="add-btn" onclick="addRunInp()">Add</button></div></div>';
 
-  h+='<div class="card"><div class="stats-title">\u{1F4CA} Statistics</div><table class="stats-table"><thead><tr><th></th><th>Today</th><th>Week</th><th>Year</th></tr></thead><tbody>';
-  EX.forEach(e=>{h+='<tr><td>'+e.label+'</td><td>'+(s.tl[e.id]||0)+'</td><td>'+s.wT[e.id]+'</td><td>'+s.yT[e.id]+'</td></tr>'});
-  h+='</tbody></table><div class="totals-row"><div class="total-box"><div class="total-label">Total Reps This Week</div><div class="total-val">'+s.twk.toLocaleString()+'</div></div><div class="total-box"><div class="total-label">Total Reps This Year</div><div class="total-val">'+s.tyr.toLocaleString()+'</div></div></div></div>';
+  // Stats card
+  h += '<div class="card"><div class="stats-title">📊 Statistics</div><table class="stats-table"><thead><tr><th></th><th>Today</th><th>Week</th><th>Year</th></tr></thead><tbody>';
+  EX.forEach(function(e) {
+    h += '<tr><td>' + e.label + '</td><td>' + (s.tl[e.id] || 0) + '</td><td>' + s.wT[e.id] + '</td><td>' + s.yT[e.id] + '</td></tr>';
+  });
+  h += '</tbody></table><div class="totals-row"><div class="total-box"><div class="total-label">Total Reps This Week</div><div class="total-val">' + s.twk.toLocaleString() + '</div></div><div class="total-box"><div class="total-label">Total Reps This Year</div><div class="total-val">' + s.tyr.toLocaleString() + '</div></div></div></div>';
 
-  h+='<button class="reset-btn" onclick="if(confirm(\'Reset all data? This cannot be undone.\')){localStorage.removeItem(\''+SK+'\');location.reload()}">Reset All Data</button>';
+  // Reset
+  h += '<button class="reset-btn" onclick="if(confirm(\'Reset all data? This cannot be undone.\')){localStorage.removeItem(\'' + SK + '\');location.reload()}">Reset All Data</button>';
 
-  document.getElementById('content').innerHTML=h;
+  document.getElementById('content').innerHTML = h;
 }
 
-load();
-if(!localStorage.getItem(SK))document.getElementById('goalModal').classList.add('show');
-render();
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE SWIPE
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-// ─── PAGE SWIPE ───
-let curPage=0, touchX=0, touchY=0, swiping=false;
-function goPage(p){
-  curPage=p;
-  document.getElementById('pagesWrap').classList.toggle('on-cal',p===1);
-  document.getElementById('dot0').classList.toggle('active',p===0);
-  document.getElementById('dot1').classList.toggle('active',p===1);
-  if(p===1) renderCal();
+var curPage = 0, touchX = 0, touchY = 0, swiping = false;
+
+function goPage(p) {
+  curPage = p;
+  document.getElementById('pagesWrap').classList.toggle('on-cal', p === 1);
+  document.getElementById('dot0').classList.toggle('active', p === 0);
+  document.getElementById('dot1').classList.toggle('active', p === 1);
+  if (p === 1) renderCal();
 }
 
-document.addEventListener('touchstart',function(e){
-  if(document.getElementById('goalModal').classList.contains('show'))return;
-  touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;swiping=true;
-},{passive:true});
+document.addEventListener('touchstart', function(e) {
+  if (document.getElementById('goalModal').classList.contains('show')) return;
+  touchX = e.touches[0].clientX;
+  touchY = e.touches[0].clientY;
+  swiping = true;
+}, { passive: true });
 
-document.addEventListener('touchend',function(e){
-  if(!swiping)return;swiping=false;
-  const dx=e.changedTouches[0].clientX-touchX;
-  const dy=e.changedTouches[0].clientY-touchY;
-  if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>60){
-    if(dx<0&&curPage===0)goPage(1);
-    else if(dx>0&&curPage===1)goPage(0);
+document.addEventListener('touchend', function(e) {
+  if (!swiping) return;
+  swiping = false;
+  var dx = e.changedTouches[0].clientX - touchX;
+  var dy = e.changedTouches[0].clientY - touchY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+    if (dx < 0 && curPage === 0) goPage(1);
+    else if (dx > 0 && curPage === 1) goPage(0);
   }
-},{passive:true});
+}, { passive: true });
 
-// ─── CALENDAR ───
-let calYear=new Date().getFullYear(), calMon=new Date().getMonth();
-let selectedDay=null;
+/* ═══════════════════════════════════════════════════════════════════════════
+   CALENDAR VIEW
+   
+   Calendar uses LOCAL date keys for everything.
+   Each day's status is determined by comparing that day's log against goals.
+   Today is always treated as "in progress" (never "missed") until the day ends.
+   Past days with no log are marked "missed". Past days with partial log = "partial".
+   Future days are greyed out.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-function calPrev(){calMon--;if(calMon<0){calMon=11;calYear--}renderCal()}
-function calNext(){
-  const now=new Date();
-  if(calYear>now.getFullYear()||(calYear===now.getFullYear()&&calMon>=now.getMonth()))return;
-  calMon++;if(calMon>11){calMon=0;calYear++}renderCal();
+var calYear = new Date().getFullYear();
+var calMon = new Date().getMonth();
+var selectedDay = null;
+
+function calPrev() {
+  calMon--;
+  if (calMon < 0) { calMon = 11; calYear--; }
+  renderCal();
 }
 
-function renderCal(){
-  const now=new Date(), todayStr=dayKey();
-  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  document.getElementById('calMonth').textContent=months[calMon]+' '+calYear;
+function calNext() {
+  var now = new Date();
+  if (calYear > now.getFullYear() || (calYear === now.getFullYear() && calMon >= now.getMonth())) return;
+  calMon++;
+  if (calMon > 11) { calMon = 0; calYear++; }
+  renderCal();
+}
 
-  // Get first day of month (Mon=0)
-  const firstDay=new Date(calYear,calMon,1);
-  let startDay=firstDay.getDay()-1; if(startDay<0)startDay=6;
-  const daysInMonth=new Date(calYear,calMon+1,0).getDate();
+function renderCal() {
+  var now = new Date();
+  var todayStr = getLocalDateKey();
+  var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  document.getElementById('calMonth').textContent = months[calMon] + ' ' + calYear;
 
-  // Calculate stats for the month
-  let hitDays=0,missDays=0,partialDays=0,activeDays=0;
-  const dayStatuses=[];
+  var firstDay = new Date(calYear, calMon, 1);
+  var startDay = firstDay.getDay() - 1;
+  if (startDay < 0) startDay = 6;
+  var daysInMonth = new Date(calYear, calMon + 1, 0).getDate();
 
-  for(let d=1;d<=daysInMonth;d++){
-    const date=new Date(calYear,calMon,d);
-    const dk=dayKey(date);
-    const log=D.dailyLogs[dk]||{};
-    const isFuture=date>now;
-    const isToday=dk===todayStr;
-    const hasAny=EX.some(e=>(log[e.id]||0)>0);
-    const allHit=EX.every(e=>(log[e.id]||0)>=D.goals[e.id]);
-    const someHit=EX.some(e=>(log[e.id]||0)>=D.goals[e.id]);
+  // Determine the earliest date we started tracking (to avoid marking pre-app days as missed)
+  var earliestDate = null;
+  Object.keys(D.dailyLogs).forEach(function(dk) {
+    if (!earliestDate || dk < earliestDate) earliestDate = dk;
+  });
 
-    let status='none';
-    if(isFuture&&!isToday){status='future'}
-    else if(allHit){status='hit';hitDays++; activeDays++}
-    else if(hasAny){status='partial';partialDays++; activeDays++}
-    else if(!isFuture&&!isToday){status='miss';missDays++; activeDays++}
-    else if(isToday&&hasAny&&!allHit){status='partial'; activeDays++}
-    else if(isToday&&!hasAny){status='today-empty'}
+  var hitDays = 0, missDays = 0, partialDays = 0;
+  var dayStatuses = [];
 
-    dayStatuses.push({d,dk,status,isToday,log});
+  for (var d = 1; d <= daysInMonth; d++) {
+    var date = new Date(calYear, calMon, d);
+    var dk = getLocalDateKey(date);
+    var log = D.dailyLogs[dk] || {};
+    var isFuture = dk > todayStr;
+    var isToday = dk === todayStr;
+    var isBeforeTracking = earliestDate && dk < earliestDate;
+    var hasAny = EX.some(function(e) { return (log[e.id] || 0) > 0; });
+    var allHit = EX.every(function(e) { return (log[e.id] || 0) >= D.goals[e.id]; });
+
+    var status = 'none';
+    if (isFuture) {
+      status = 'future';
+    } else if (allHit) {
+      status = 'hit';
+      hitDays++;
+    } else if (isToday) {
+      // Today is never "missed" — it's either in-progress or not started yet
+      status = hasAny ? 'partial' : 'today-empty';
+      if (hasAny) partialDays++;
+    } else if (hasAny) {
+      status = 'partial';
+      partialDays++;
+    } else if (isBeforeTracking) {
+      // Don't mark days before the user started as missed
+      status = 'none';
+    } else {
+      status = 'miss';
+      missDays++;
+    }
+
+    dayStatuses.push({ d: d, dk: dk, status: status, isToday: isToday, log: log });
   }
 
   // Summary
-  document.getElementById('calSummary').innerHTML=
-    '<div class="cal-sum-box"><div class="cal-sum-val">'+hitDays+'</div><div class="cal-sum-label">Days Hit ✅</div></div>'+
-    '<div class="cal-sum-box"><div class="cal-sum-val">'+partialDays+'</div><div class="cal-sum-label">Partial ⚡</div></div>'+
-    '<div class="cal-sum-box"><div class="cal-sum-val">'+missDays+'</div><div class="cal-sum-label">Missed ❌</div></div>';
+  document.getElementById('calSummary').innerHTML =
+    '<div class="cal-sum-box"><div class="cal-sum-val">' + hitDays + '</div><div class="cal-sum-label">Days Hit ✅</div></div>' +
+    '<div class="cal-sum-box"><div class="cal-sum-val">' + partialDays + '</div><div class="cal-sum-label">Partial ⚡</div></div>' +
+    '<div class="cal-sum-box"><div class="cal-sum-val">' + missDays + '</div><div class="cal-sum-label">Missed ❌</div></div>';
 
-  // Render days grid
-  let grid='';
-  for(let i=0;i<startDay;i++) grid+='<div class="cal-day empty"></div>';
+  // Grid
+  var grid = '';
+  for (var i = 0; i < startDay; i++) grid += '<div class="cal-day empty"></div>';
 
-  dayStatuses.forEach(ds=>{
-    let cls='cal-day';
-    let icon='';
-    if(ds.isToday) cls+=' today';
-    if(ds.status==='hit'){cls+=' hit';icon='<div class="cal-icon">✅</div>'}
-    else if(ds.status==='miss'){cls+=' miss';icon='<div class="cal-icon">❌</div>'}
-    else if(ds.status==='partial'){cls+=' partial';icon='<div class="cal-icon">⚡</div>'}
-    else if(ds.status==='future'){cls+=' future'}
+  dayStatuses.forEach(function(ds) {
+    var cls = 'cal-day';
+    var icon = '';
+    if (ds.isToday) cls += ' today';
+    if (ds.status === 'hit') { cls += ' hit'; icon = '<div class="cal-icon">✅</div>'; }
+    else if (ds.status === 'miss') { cls += ' miss'; icon = '<div class="cal-icon">❌</div>'; }
+    else if (ds.status === 'partial') { cls += ' partial'; icon = '<div class="cal-icon">⚡</div>'; }
+    else if (ds.status === 'future') { cls += ' future'; }
 
-    grid+='<div class="'+cls+'" onclick="showDayDetail(\''+ds.dk+'\')">'+ds.d+icon+'</div>';
+    grid += '<div class="' + cls + '" onclick="showDayDetail(\'' + ds.dk + '\')">' + ds.d + icon + '</div>';
   });
 
-  document.getElementById('calDays').innerHTML=grid;
-  if(selectedDay)showDayDetail(selectedDay);
+  document.getElementById('calDays').innerHTML = grid;
+  if (selectedDay) showDayDetail(selectedDay);
 }
 
-function showDayDetail(dk){
-  selectedDay=dk;
-  const log=D.dailyLogs[dk]||{};
-  const date=new Date(dk+'T00:00:00');
-  const dateStr=date.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const hasAny=EX.some(e=>(log[e.id]||0)>0);
-  const runKm=D.runningLogs[dk]||0;
+function showDayDetail(dk) {
+  selectedDay = dk;
+  var log = D.dailyLogs[dk] || {};
+  var date = parseLocalDate(dk);
+  var dateStr = date.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  var hasAny = EX.some(function(e) { return (log[e.id] || 0) > 0; });
+  var runKm = D.runningLogs[dk] || 0;
 
-  if(!hasAny&&runKm===0){document.getElementById('calDetail').classList.remove('show');selectedDay=null;return}
+  if (!hasAny && runKm === 0) {
+    document.getElementById('calDetail').classList.remove('show');
+    selectedDay = null;
+    return;
+  }
 
-  let h='<div class="cal-detail-title">'+dateStr+'</div>';
-  EX.forEach(e=>{
-    const done=log[e.id]||0;
-    const goal=D.goals[e.id];
-    const hit=done>=goal;
-    h+='<div class="cal-detail-row"><div class="cal-detail-label">'+e.icon+' '+e.label+'</div><div class="cal-detail-val '+(done>0?(hit?'hit':'miss'):'')+'">'+done+' / '+goal+'</div></div>';
+  var h = '<div class="cal-detail-title">' + dateStr + '</div>';
+  EX.forEach(function(e) {
+    var done = log[e.id] || 0;
+    var goal = D.goals[e.id];
+    var hit = done >= goal;
+    h += '<div class="cal-detail-row"><div class="cal-detail-label">' + e.icon + ' ' + e.label + '</div><div class="cal-detail-val ' + (done > 0 ? (hit ? 'hit' : 'miss') : '') + '">' + done + ' / ' + goal + '</div></div>';
   });
-  if(runKm>0) h+='<div class="cal-detail-row"><div class="cal-detail-label">\u{1F3C3} Running</div><div class="cal-detail-val hit">'+runKm.toFixed(1)+' km</div></div>';
+  if (runKm > 0) h += '<div class="cal-detail-row"><div class="cal-detail-label">🏃 Running</div><div class="cal-detail-val hit">' + runKm.toFixed(1) + ' km</div></div>';
 
-  const el=document.getElementById('calDetail');
-  el.innerHTML=h;
+  var el = document.getElementById('calDetail');
+  el.innerHTML = h;
   el.classList.add('show');
 }
 
-// ─── AUTO-REFRESH ON NEW DAY ───
-let lastDay=dayKey();
+/* ═══════════════════════════════════════════════════════════════════════════
+   APP INITIALIZATION & AUTO-REFRESH
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-// When user switches back to the app, check if it's a new day
-document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'){
-    load(); // reload data from storage
-    const today=dayKey();
-    if(today!==lastDay){
-      lastDay=today;
-      calYear=new Date().getFullYear();
-      calMon=new Date().getMonth();
+// 1. Load data from storage
+loadData();
+
+// 2. Run rollover check (this is the key fix)
+rolloverIfNeeded();
+
+// 3. Show goal setup if first time
+if (!localStorage.getItem(SK) && Object.keys(D.dailyLogs).length <= 1) {
+  document.getElementById('goalModal').classList.add('show');
+}
+
+// 4. Initial render
+render();
+
+// 5. Auto-refresh when app becomes visible (returning from background)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') {
+    loadData();               // Re-read from storage
+    var changed = rolloverIfNeeded();  // Check for new day
+    if (changed) {
+      calYear = new Date().getFullYear();
+      calMon = new Date().getMonth();
     }
     render();
-    if(curPage===1) renderCal();
+    if (curPage === 1) renderCal();
   }
 });
 
-// Also check every 60 seconds in case the app stays open past midnight
-setInterval(function(){
-  const today=dayKey();
-  if(today!==lastDay){
-    lastDay=today;
-    calYear=new Date().getFullYear();
-    calMon=new Date().getMonth();
+// 6. Safety net: check every 30 seconds for midnight crossover
+setInterval(function() {
+  var changed = rolloverIfNeeded();
+  if (changed) {
+    calYear = new Date().getFullYear();
+    calMon = new Date().getMonth();
     render();
-    if(curPage===1) renderCal();
+    if (curPage === 1) renderCal();
   }
-},60000);
+}, 30000);
 
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+// 7. Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(function() {});
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SYNC SERVICE PLACEHOLDER — Future Apple Health / HealthKit Integration
+   
+   This web app CANNOT directly access Apple Health / HealthKit.
+   HealthKit requires native iOS code (Swift + HealthKit framework).
+   
+   To add Apple Health support later:
+   1. Wrap this app using Capacitor (https://capacitorjs.com)
+   2. Create a native Swift plugin that calls HealthKit APIs
+   3. Bridge the plugin to this web layer via Capacitor's plugin system
+   4. Call syncService methods after each workout session
+   
+   The data model is already structured per-day with exercise counts,
+   making it straightforward to map to HKQuantityType samples:
+   - pushups/pullups/squats → HKQuantityType.quantityType(forIdentifier: .pushUps) etc.
+   - running km → HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var syncService = {
+  // TODO: Implement with Capacitor + native HealthKit plugin
+  saveWorkoutSession: function(dateKey, exerciseData) {
+    console.log('[SyncService] TODO: Save workout for', dateKey, exerciseData);
+  },
+  syncDailyActivity: function(dateKey, totalReps, runKm) {
+    console.log('[SyncService] TODO: Sync daily activity for', dateKey);
+  },
+  exportToHealthKit: function(startDate, endDate) {
+    console.log('[SyncService] TODO: Export history', startDate, '→', endDate);
+  }
+};
 </script>
 </body>
 </html>

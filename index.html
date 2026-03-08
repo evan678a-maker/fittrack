@@ -129,6 +129,17 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .total-val{font-size:26px;font-weight:900;color:#0369a1}
 .reset-btn{display:block;margin:32px auto 0;background:transparent;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px 24px;color:#94a3b8;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
 
+.health-sync-card{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:22px;padding:20px 18px;box-shadow:0 2px 20px rgba(34,197,94,.08);margin-bottom:14px;border:2px solid rgba(34,197,94,.2)}
+.health-sync-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.health-sync-icon{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#4ade80);display:flex;align-items:center;justify-content:center;font-size:22px}
+.health-sync-title{font-weight:800;font-size:17px;color:#166534}
+.health-sync-sub{font-size:12px;color:#4ade80;font-weight:500}
+.health-sync-summary{font-size:13px;color:#15803d;font-weight:600;margin-bottom:14px;line-height:1.5;background:rgba(255,255,255,.6);border-radius:14px;padding:12px 14px}
+.health-sync-btn{width:100%;background:linear-gradient(135deg,#22c55e,#16a34a);border:none;border-radius:16px;padding:14px;color:#fff;font-weight:900;font-size:16px;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(34,197,94,.3);transition:transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
+.health-sync-btn:active{transform:scale(.97)}
+.health-sync-btn.synced{background:linear-gradient(135deg,#86efac,#4ade80);color:#166534}
+.health-sync-note{font-size:11px;color:#86efac;text-align:center;margin-top:10px;font-weight:500}
+
 .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(40px);opacity:0;background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff;padding:12px 28px;border-radius:50px;font-weight:700;font-size:15px;box-shadow:0 8px 32px rgba(14,165,233,.35);z-index:999;pointer-events:none;white-space:nowrap;transition:all .4s cubic-bezier(.4,0,.2,1)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
@@ -355,7 +366,8 @@ function defaultData() {
     activeDate: getLocalDateKey(),
     dailyLogs: {},
     runningLogs: {},
-    dismissed: {}
+    dismissed: {},
+    healthSynced: {}
   };
 }
 
@@ -730,6 +742,46 @@ function getReminders() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   APPLE HEALTH SYNC via Shortcuts
+   
+   This opens the Apple Shortcut "FitTrack Sync" with today's data.
+   The data is passed as: pushups,pullups,squats,runningKm,estMinutes
+   Example: "100,30,80,5.2,18"
+   
+   The Shortcut then logs this to Apple Health as:
+   - A Functional Strength Training workout (with duration)
+   - Running distance (if > 0)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function syncToHealth() {
+  var tl = getTodayLog();
+  var pushups = tl.pushups || 0;
+  var pullups = tl.pullups || 0;
+  var squats = tl.squats || 0;
+  var runKm = D.runningLogs[getTodayKey()] || 0;
+  var totalReps = pushups + pullups + squats;
+  var estMins = Math.max(1, Math.round(totalReps / 12));
+  
+  // Build data string: pushups,pullups,squats,runKm,estMins
+  var dataStr = pushups + ',' + pullups + ',' + squats + ',' + runKm.toFixed(1) + ',' + estMins;
+  
+  // Build Shortcuts URL
+  var shortcutName = encodeURIComponent('FitTrack Sync');
+  var url = 'shortcuts://run-shortcut?name=' + shortcutName + '&input=text&text=' + encodeURIComponent(dataStr);
+  
+  // Mark as synced
+  if (!D.healthSynced) D.healthSynced = {};
+  D.healthSynced[getTodayKey()] = true;
+  saveData();
+  
+  // Open the shortcut
+  window.location.href = url;
+  
+  // Re-render after a moment to update button state
+  setTimeout(render, 500);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    MAIN RENDER — Dashboard page
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -802,6 +854,31 @@ function render() {
     h += '<tr><td>' + e.label + '</td><td>' + (s.tl[e.id] || 0) + '</td><td>' + s.wT[e.id] + '</td><td>' + s.yT[e.id] + '</td></tr>';
   });
   h += '</tbody></table><div class="totals-row"><div class="total-box"><div class="total-label">Total Reps This Week</div><div class="total-val">' + s.twk.toLocaleString() + '</div></div><div class="total-box"><div class="total-label">Total Reps This Year</div><div class="total-val">' + s.tyr.toLocaleString() + '</div></div></div></div>';
+
+  // Health Sync card
+  var tl2 = getTodayLog();
+  var totalReps = EX.reduce(function(s, e) { return s + (tl2[e.id] || 0); }, 0);
+  var runKm = D.runningLogs[getTodayKey()] || 0;
+  var todaySynced = D.healthSynced && D.healthSynced[getTodayKey()];
+
+  if (totalReps > 0 || runKm > 0) {
+    h += '<div class="health-sync-card">';
+    h += '<div class="health-sync-header"><div class="health-sync-icon">❤️</div><div><div class="health-sync-title">Apple Health</div><div class="health-sync-sub">Sync today\'s workout</div></div></div>';
+    h += '<div class="health-sync-summary">';
+    EX.forEach(function(e) {
+      var done = tl2[e.id] || 0;
+      if (done > 0) h += e.icon + ' ' + done + ' ' + e.label.toLowerCase() + '<br>';
+    });
+    if (runKm > 0) h += '🏃 ' + runKm.toFixed(1) + ' km running<br>';
+    var estMins = Math.max(1, Math.round(totalReps / 12));
+    h += '<br>⏱️ Est. ' + estMins + ' min workout';
+    h += '</div>';
+    h += '<button class="health-sync-btn' + (todaySynced ? ' synced' : '') + '" onclick="syncToHealth()">';
+    h += todaySynced ? '✅ Synced — Tap to Update' : '❤️ Sync to Apple Health';
+    h += '</button>';
+    h += '<div class="health-sync-note">Opens Apple Shortcut "FitTrack Sync"</div>';
+    h += '</div>';
+  }
 
   // Reset
   h += '<button class="reset-btn" onclick="if(confirm(\'Reset all data? This cannot be undone.\')){localStorage.removeItem(\'' + SK + '\');location.reload()}">Reset All Data</button>';

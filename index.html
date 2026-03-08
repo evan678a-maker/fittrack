@@ -765,20 +765,21 @@ function syncToHealth() {
   // Build data string: pushups,pullups,squats,runKm,estMins
   var dataStr = pushups + ',' + pullups + ',' + squats + ',' + runKm.toFixed(1) + ',' + estMins;
   
-  // Build Shortcuts URL
-  var shortcutName = encodeURIComponent('FitTrack Sync');
-  var url = 'shortcuts://run-shortcut?name=' + shortcutName + '&input=text&text=' + encodeURIComponent(dataStr);
-  
-  // Mark as synced
-  if (!D.healthSynced) D.healthSynced = {};
-  D.healthSynced[getTodayKey()] = true;
-  saveData();
-  
-  // Open the shortcut
-  window.location.href = url;
-  
-  // Re-render after a moment to update button state
-  setTimeout(render, 500);
+  // Copy to clipboard first (most reliable way to pass data to Shortcuts)
+  navigator.clipboard.writeText(dataStr).then(function() {
+    // Mark as synced
+    if (!D.healthSynced) D.healthSynced = {};
+    D.healthSynced[getTodayKey()] = true;
+    saveData();
+    
+    // Open the shortcut (it will read from clipboard)
+    window.location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent('FitTrack Sync');
+    
+    setTimeout(render, 500);
+  }).catch(function() {
+    // Fallback: prompt user to copy manually
+    prompt('Copy this data, then run FitTrack Sync shortcut manually:', dataStr);
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -149,6 +149,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .squad-modal-input{width:100%;border:2px solid #ddd6fe;border-radius:14px;padding:12px 16px;font-size:16px;font-family:inherit;outline:none;font-weight:700;color:#4c1d95;background:#faf5ff;margin-bottom:14px}
 .squad-modal-input:focus{border-color:#8b5cf6}
 .squad-last-seen{font-size:11px;color:#a78bfa;font-weight:500;text-align:center;margin-top:6px}
+.squad-feed{margin-top:10px;max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.squad-feed-title{font-weight:800;font-size:12px;color:#6d28d9;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.squad-feed-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:10px;margin-bottom:3px;font-size:12px;font-weight:600}
+.squad-feed-item.me{background:rgba(139,92,246,.08);color:#4c1d95}
+.squad-feed-item.buddy{background:rgba(251,191,36,.08);color:#92400e}
+.squad-feed-time{font-size:11px;color:#a78bfa;font-weight:500;white-space:nowrap;margin-left:8px}
 
 .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(40px);opacity:0;background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff;padding:12px 28px;border-radius:50px;font-weight:700;font-size:15px;box-shadow:0 8px 32px rgba(14,165,233,.35);z-index:999;pointer-events:none;white-space:nowrap;transition:all .4s cubic-bezier(.4,0,.2,1)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -383,7 +389,7 @@ function defaultData() {
     dailyLogs: {},
     runningLogs: {},
     dismissed: {},
-    healthSynced: {}
+    activityLog: []
   };
 }
 
@@ -517,6 +523,12 @@ function logEx(id, n) {
   D.dailyLogs[today][id] = prev + n;
   saveData();
 
+  // Track activity with timestamp for squad feed
+  if (!D.activityLog) D.activityLog = [];
+  D.activityLog.push({ id: id, n: n, t: Date.now() });
+  // Keep only last 50 entries to avoid bloating storage
+  if (D.activityLog.length > 50) D.activityLog = D.activityLog.slice(-50);
+
   const total = D.dailyLogs[today][id];
   const goal = D.goals[id];
   const ex = EX.find(function(e) { return e.id === id; });
@@ -543,6 +555,10 @@ function logRun(km) {
   rolloverIfNeeded();
   var today = getTodayKey();
   D.runningLogs[today] = (D.runningLogs[today] || 0) + km;
+  // Track activity with timestamp for squad feed
+  if (!D.activityLog) D.activityLog = [];
+  D.activityLog.push({ id: 'run', n: km, t: Date.now() });
+  if (D.activityLog.length > 50) D.activityLog = D.activityLog.slice(-50);
   saveData();
   showToast('+' + km + 'km logged! 🏃');
   squadPushMyData();
@@ -1111,6 +1127,12 @@ function squadPushMyData() {
   if (!squadCfg) return;
   var today = getTodayKey();
   var tl = getTodayLog();
+  // Filter activity log to only today's entries (last 20 max)
+  var todayStart = parseLocalDate(today).getTime();
+  var todayEnd = todayStart + 86400000;
+  var todayLog = (D.activityLog || []).filter(function(e) {
+    return e.t >= todayStart && e.t < todayEnd;
+  }).slice(-20);
   var payload = {
     name: squadCfg.myName,
     date: today,
@@ -1119,6 +1141,7 @@ function squadPushMyData() {
     squats: tl.squats || 0,
     runKm: D.runningLogs[today] || 0,
     goals: { pushups: D.goals.pushups, pullups: D.goals.pullups, squats: D.goals.squats },
+    activity: todayLog,
     ts: Date.now()
   };
   fetch(squadFirebasePath(squadCfg.myName), {
@@ -1135,19 +1158,34 @@ function squadFetchBuddy() {
     .then(function(data) {
       if (data && data.ts) {
         var today = getTodayKey();
-        // Only show buddy data if it's from today
-        buddyData = (data.date === today) ? data : null;
-        render();
+        var newBuddy = (data.date === today) ? data : null;
+        // Only update DOM if data actually changed
+        var oldTs = buddyData ? buddyData.ts : 0;
+        var newTs = newBuddy ? newBuddy.ts : 0;
+        if (newTs !== oldTs) {
+          buddyData = newBuddy;
+          updateSquadCard();
+        }
       }
     })
     .catch(function() { /* offline */ });
+}
+
+// Lightweight update — only replaces the squad card, not the full page
+function updateSquadCard() {
+  var squadEl = document.querySelector('.squad-card');
+  if (squadEl) {
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = renderSquadCard();
+    squadEl.replaceWith(wrapper.firstElementChild);
+  }
 }
 
 function startSquadPolling() {
   if (squadPollTimer) clearInterval(squadPollTimer);
   if (!squadCfg) return;
   squadFetchBuddy(); // immediate fetch
-  squadPollTimer = setInterval(squadFetchBuddy, 30000); // then every 30s
+  squadPollTimer = setInterval(squadFetchBuddy, 3000); // every 3s for near-real-time
 }
 
 function openSquadModal() {
@@ -1160,10 +1198,60 @@ function openSquadModal() {
   document.getElementById('squadModal').classList.add('show');
 }
 
+function formatActivityTime(ts) {
+  var d = new Date(ts);
+  var h = d.getHours(), m = d.getMinutes();
+  var ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  return h + ':' + String(m).padStart(2, '0') + ampm;
+}
+
+function getExLabel(id) {
+  if (id === 'run') return '🏃 Run';
+  var ex = EX.find(function(e) { return e.id === id; });
+  return ex ? ex.icon + ' ' + ex.label : id;
+}
+
+function renderActivityFeed() {
+  var today = getTodayKey();
+  var todayStart = parseLocalDate(today).getTime();
+  var todayEnd = todayStart + 86400000;
+
+  // Collect my activity
+  var myActs = (D.activityLog || []).filter(function(e) {
+    return e.t >= todayStart && e.t < todayEnd;
+  }).map(function(e) {
+    return { who: 'me', name: squadCfg.myName, id: e.id, n: e.n, t: e.t };
+  });
+
+  // Collect buddy activity
+  var buddyActs = [];
+  if (buddyData && buddyData.activity) {
+    buddyActs = buddyData.activity.map(function(e) {
+      return { who: 'buddy', name: squadCfg.buddyName, id: e.id, n: e.n, t: e.t };
+    });
+  }
+
+  // Merge and sort by time descending (most recent first)
+  var all = myActs.concat(buddyActs).sort(function(a, b) { return b.t - a.t; });
+  if (all.length === 0) return '';
+
+  var html = '<div class="squad-feed"><div class="squad-feed-title">⚡ Live Activity</div>';
+  all.slice(0, 20).forEach(function(a) {
+    var unit = a.id === 'run' ? 'km' : '';
+    var val = a.id === 'run' ? (+a.n).toFixed(1) + unit : '+' + a.n;
+    html += '<div class="squad-feed-item ' + a.who + '"><span>' +
+      (a.who === 'me' ? '🟣' : '🟡') + ' ' + a.name + ' — ' + getExLabel(a.id) + ' ' + val +
+      '</span><span class="squad-feed-time">' + formatActivityTime(a.t) + '</span></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
 function renderSquadCard() {
   if (!squadCfg) {
     return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">See each other\'s progress live</div></div></div>' +
-      '<div class="squad-status">Connect with a mate — you\'ll see their reps update every 30 seconds</div>' +
+      '<div class="squad-status">Connect with a mate — you\'ll see their reps update in real time</div>' +
       '<button class="squad-setup-btn" onclick="openSquadModal()">🔗 Set Up Squad</button></div>';
   }
 
@@ -1195,13 +1283,15 @@ function renderSquadCard() {
     var minsAgo = Math.round((Date.now() - buddyData.ts) / 60000);
     buddyCol += '</div>';
     var lastSeen = minsAgo < 1 ? 'just now' : minsAgo < 60 ? minsAgo + 'm ago' : Math.round(minsAgo/60) + 'h ago';
-    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">🟢 Live • updates every 30s</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
+    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">🟢 Live • updates every 3s</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
       '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
+      renderActivityFeed() +
       '<div class="squad-last-seen">Last seen ' + squadCfg.buddyName + ': ' + lastSeen + '</div></div>';
   } else {
     buddyCol += '<div style="color:#a78bfa;font-size:13px;font-weight:600;padding:8px 0">Waiting for today\'s data…</div></div>';
     return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">⏳ Waiting for buddy…</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
       '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
+      renderActivityFeed() +
       '<div class="squad-last-seen">No data from ' + squadCfg.buddyName + ' today yet</div></div>';
   }
 }

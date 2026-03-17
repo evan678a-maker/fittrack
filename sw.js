@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fittrack-v2';
+const CACHE_NAME = 'fittrack-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -22,6 +22,12 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Squad Firebase requests must NEVER be served from cache — always hit network
+  if (e.request.url.includes('firebaseio.com')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
   e.respondWith(
     fetch(e.request).then(res => {
       const clone = res.clone();

@@ -129,16 +129,26 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .total-val{font-size:26px;font-weight:900;color:#0369a1}
 .reset-btn{display:block;margin:32px auto 0;background:transparent;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px 24px;color:#94a3b8;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
 
-.health-sync-card{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:22px;padding:20px 18px;box-shadow:0 2px 20px rgba(34,197,94,.08);margin-bottom:14px;border:2px solid rgba(34,197,94,.2)}
-.health-sync-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.health-sync-icon{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#4ade80);display:flex;align-items:center;justify-content:center;font-size:22px}
-.health-sync-title{font-weight:800;font-size:17px;color:#166534}
-.health-sync-sub{font-size:12px;color:#4ade80;font-weight:500}
-.health-sync-summary{font-size:13px;color:#15803d;font-weight:600;margin-bottom:14px;line-height:1.5;background:rgba(255,255,255,.6);border-radius:14px;padding:12px 14px}
-.health-sync-btn{width:100%;background:linear-gradient(135deg,#22c55e,#16a34a);border:none;border-radius:16px;padding:14px;color:#fff;font-weight:900;font-size:16px;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(34,197,94,.3);transition:transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
-.health-sync-btn:active{transform:scale(.97)}
-.health-sync-btn.synced{background:linear-gradient(135deg,#86efac,#4ade80);color:#166534}
-.health-sync-note{font-size:11px;color:#86efac;text-align:center;margin-top:10px;font-weight:500}
+/* Squad card styles */
+.squad-card{background:linear-gradient(135deg,#faf5ff,#ede9fe);border-radius:22px;padding:20px 18px;box-shadow:0 2px 20px rgba(139,92,246,.08);margin-bottom:14px;border:2px solid rgba(139,92,246,.2)}
+.squad-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.squad-icon{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#8b5cf6,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:22px}
+.squad-title{font-weight:800;font-size:17px;color:#4c1d95}
+.squad-sub{font-size:12px;color:#a78bfa;font-weight:500}
+.squad-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.squad-col{background:rgba(255,255,255,.7);border-radius:16px;padding:12px}
+.squad-col-name{font-weight:800;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:4px}
+.squad-col-name.me{color:#6d28d9}
+.squad-col-name.buddy{color:#7c3aed}
+.squad-row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;font-weight:600;color:#4c1d95}
+.squad-row span:last-child{font-weight:800}
+.squad-status{font-size:11px;color:#8b5cf6;text-align:center;margin-bottom:10px;font-weight:600}
+.squad-setup-btn{width:100%;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:none;border-radius:16px;padding:13px;color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(139,92,246,.3);transition:transform .1s}
+.squad-setup-btn:active{transform:scale(.97)}
+.squad-modal-label{font-weight:700;font-size:14px;color:#4c1d95;display:block;margin-bottom:6px}
+.squad-modal-input{width:100%;border:2px solid #ddd6fe;border-radius:14px;padding:12px 16px;font-size:16px;font-family:inherit;outline:none;font-weight:700;color:#4c1d95;background:#faf5ff;margin-bottom:14px}
+.squad-modal-input:focus{border-color:#8b5cf6}
+.squad-last-seen{font-size:11px;color:#a78bfa;font-weight:500;text-align:center;margin-top:6px}
 
 .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(40px);opacity:0;background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff;padding:12px 28px;border-radius:50px;font-weight:700;font-size:15px;box-shadow:0 8px 32px rgba(14,165,233,.35);z-index:999;pointer-events:none;white-space:nowrap;transition:all .4s cubic-bezier(.4,0,.2,1)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -249,6 +259,24 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   </div>
 </div>
 
+<!-- Squad Setup Modal -->
+<div class="modal-bg" id="squadModal">
+  <div class="modal">
+    <div class="modal-title">👥 Squad Setup</div>
+    <div class="modal-sub">You and your mate share the same Room Code</div>
+    <label class="squad-modal-label">Your nickname</label>
+    <input class="squad-modal-input" type="text" id="squadMyName" placeholder="e.g. Evan" maxlength="20">
+    <label class="squad-modal-label">Buddy's nickname</label>
+    <input class="squad-modal-input" type="text" id="squadBuddyName" placeholder="e.g. Michael" maxlength="20">
+    <label class="squad-modal-label">Room code (pick any shared secret)</label>
+    <input class="squad-modal-input" type="text" id="squadRoom" placeholder="e.g. fitmates-2025" maxlength="40">
+    <label class="squad-modal-label">Firebase DB URL</label>
+    <input class="squad-modal-input" type="text" id="squadFirebaseUrl" placeholder="https://YOUR-PROJECT-default-rtdb.firebaseio.com">
+    <button class="modal-save" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)" onclick="saveSquadConfig()">Connect 👥</button>
+    <button class="reset-btn" style="margin-top:10px" onclick="document.getElementById('squadModal').classList.remove('show')">Cancel</button>
+  </div>
+</div>
+
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
    FitTrack v3 — Rebuilt with bulletproof LOCAL date logic
@@ -267,18 +295,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
    - If they differ, it finalizes the old day and creates a fresh today
    - Historical data is keyed by local date and never mutated after the day ends
    
-   APPLE HEALTH / HEALTHKIT NOTES:
-   This is a static web app hosted on Netlify. Direct Apple Health
-   integration requires native iOS code (Swift/HealthKit). To add this
-   later, wrap this app using Capacitor or build a native Swift layer.
-   The syncService placeholder below marks where health data would
-   be pushed to HealthKit. The data model (per-day logs with timestamps)
-   is already structured for easy export.
-   
-   TODO: Future Apple Health integration points:
-   - syncService.saveWorkoutSession(dateKey, exerciseData)
-   - syncService.syncDailyActivity(dateKey, totalReps, duration)
-   - syncService.exportToHealthKit(historyRange)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const SK = 'fittrack-v3'; // New storage key to avoid conflicts with old data
@@ -467,10 +483,6 @@ function rolloverIfNeeded() {
   // Step 3: Save immediately so the rollover persists
   saveData();
 
-  // Step 4: Sync placeholder for future Apple Health integration
-  // TODO: syncService.finalizeDay(lastActive, D.dailyLogs[lastActive], D.goals);
-  // TODO: syncService.saveWorkoutSession(lastActive, { exercises: D.dailyLogs[lastActive], running: D.runningLogs[lastActive] });
-
   return true;
 }
 
@@ -515,6 +527,7 @@ function logEx(id, n) {
     var phrases = ['Nice set!', 'Keep pushing!', 'Solid work!', 'Strong! 💪', 'Let\'s go!'];
     showToast(phrases[Math.floor(Math.random() * phrases.length)]);
   }
+  squadPushMyData();
   render();
 }
 
@@ -532,6 +545,7 @@ function logRun(km) {
   D.runningLogs[today] = (D.runningLogs[today] || 0) + km;
   saveData();
   showToast('+' + km + 'km logged! 🏃');
+  squadPushMyData();
   render();
 }
 
@@ -742,47 +756,6 @@ function getReminders() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   APPLE HEALTH SYNC via Shortcuts
-   
-   This opens the Apple Shortcut "FitTrack Sync" with today's data.
-   The data is passed as: pushups,pullups,squats,runningKm,estMinutes
-   Example: "100,30,80,5.2,18"
-   
-   The Shortcut then logs this to Apple Health as:
-   - A Functional Strength Training workout (with duration)
-   - Running distance (if > 0)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function syncToHealth() {
-  var tl = getTodayLog();
-  var pushups = tl.pushups || 0;
-  var pullups = tl.pullups || 0;
-  var squats = tl.squats || 0;
-  var runKm = D.runningLogs[getTodayKey()] || 0;
-  var totalReps = pushups + pullups + squats;
-  var estMins = Math.max(1, Math.round(totalReps / 12));
-  
-  // Build data string: pushups,pullups,squats,runKm,estMins
-  var dataStr = pushups + ',' + pullups + ',' + squats + ',' + runKm.toFixed(1) + ',' + estMins;
-  
-  // Copy to clipboard first (most reliable way to pass data to Shortcuts)
-  navigator.clipboard.writeText(dataStr).then(function() {
-    // Mark as synced
-    if (!D.healthSynced) D.healthSynced = {};
-    D.healthSynced[getTodayKey()] = true;
-    saveData();
-    
-    // Open the shortcut (it will read from clipboard)
-    window.location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent('FitTrack Sync');
-    
-    setTimeout(render, 500);
-  }).catch(function() {
-    // Fallback: prompt user to copy manually
-    prompt('Copy this data, then run FitTrack Sync shortcut manually:', dataStr);
-  });
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    MAIN RENDER — Dashboard page
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -856,30 +829,8 @@ function render() {
   });
   h += '</tbody></table><div class="totals-row"><div class="total-box"><div class="total-label">Total Reps This Week</div><div class="total-val">' + s.twk.toLocaleString() + '</div></div><div class="total-box"><div class="total-label">Total Reps This Year</div><div class="total-val">' + s.tyr.toLocaleString() + '</div></div></div></div>';
 
-  // Health Sync card
-  var tl2 = getTodayLog();
-  var totalReps = EX.reduce(function(s, e) { return s + (tl2[e.id] || 0); }, 0);
-  var runKm = D.runningLogs[getTodayKey()] || 0;
-  var todaySynced = D.healthSynced && D.healthSynced[getTodayKey()];
-
-  if (totalReps > 0 || runKm > 0) {
-    h += '<div class="health-sync-card">';
-    h += '<div class="health-sync-header"><div class="health-sync-icon">❤️</div><div><div class="health-sync-title">Apple Health</div><div class="health-sync-sub">Sync today\'s workout</div></div></div>';
-    h += '<div class="health-sync-summary">';
-    EX.forEach(function(e) {
-      var done = tl2[e.id] || 0;
-      if (done > 0) h += e.icon + ' ' + done + ' ' + e.label.toLowerCase() + '<br>';
-    });
-    if (runKm > 0) h += '🏃 ' + runKm.toFixed(1) + ' km running<br>';
-    var estMins = Math.max(1, Math.round(totalReps / 12));
-    h += '<br>⏱️ Est. ' + estMins + ' min workout';
-    h += '</div>';
-    h += '<button class="health-sync-btn' + (todaySynced ? ' synced' : '') + '" onclick="syncToHealth()">';
-    h += todaySynced ? '✅ Synced — Tap to Update' : '❤️ Sync to Apple Health';
-    h += '</button>';
-    h += '<div class="health-sync-note">Opens Apple Shortcut "FitTrack Sync"</div>';
-    h += '</div>';
-  }
+  // Squad card
+  h += renderSquadCard();
 
   // Reset
   h += '<button class="reset-btn" onclick="if(confirm(\'Reset all data? This cannot be undone.\')){localStorage.removeItem(\'' + SK + '\');location.reload()}">Reset All Data</button>';
@@ -1104,35 +1055,160 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SYNC SERVICE PLACEHOLDER — Future Apple Health / HealthKit Integration
+   SQUAD SYSTEM — Real-time buddy progress via Firebase Realtime DB REST API
    
-   This web app CANNOT directly access Apple Health / HealthKit.
-   HealthKit requires native iOS code (Swift + HealthKit framework).
+   HOW IT WORKS:
+   1. You and Michael both set up Squad with the SAME room code
+   2. Every time you log reps, your data is pushed to Firebase
+   3. Your app polls Firebase every 30s to fetch Michael's latest data
+   4. No SDK needed — plain fetch() against the Firebase REST API
    
-   To add Apple Health support later:
-   1. Wrap this app using Capacitor (https://capacitorjs.com)
-   2. Create a native Swift plugin that calls HealthKit APIs
-   3. Bridge the plugin to this web layer via Capacitor's plugin system
-   4. Call syncService methods after each workout session
-   
-   The data model is already structured per-day with exercise counts,
-   making it straightforward to map to HKQuantityType samples:
-   - pushups/pullups/squats → HKQuantityType.quantityType(forIdentifier: .pushUps) etc.
-   - running km → HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)
+   FIREBASE SETUP (free, ~2 minutes):
+   1. Go to console.firebase.google.com → New project (any name)
+   2. Build → Realtime Database → Create database → Start in TEST MODE
+   3. Copy the database URL (looks like https://xxx-default-rtdb.firebaseio.com)
+   4. Paste it into the Squad setup screen in the app
    ═══════════════════════════════════════════════════════════════════════════ */
 
-var syncService = {
-  // TODO: Implement with Capacitor + native HealthKit plugin
-  saveWorkoutSession: function(dateKey, exerciseData) {
-    console.log('[SyncService] TODO: Save workout for', dateKey, exerciseData);
-  },
-  syncDailyActivity: function(dateKey, totalReps, runKm) {
-    console.log('[SyncService] TODO: Sync daily activity for', dateKey);
-  },
-  exportToHealthKit: function(startDate, endDate) {
-    console.log('[SyncService] TODO: Export history', startDate, '→', endDate);
+var SQUAD_SK = 'fittrack-squad-v1';
+var squadCfg = null;       // { myName, buddyName, room, firebaseUrl }
+var buddyData = null;      // latest data fetched from Firebase for buddy
+var squadPollTimer = null;
+
+function loadSquadConfig() {
+  try {
+    var raw = localStorage.getItem(SQUAD_SK);
+    squadCfg = raw ? JSON.parse(raw) : null;
+  } catch(e) { squadCfg = null; }
+}
+
+function saveSquadConfig() {
+  var myName = document.getElementById('squadMyName').value.trim();
+  var buddyName = document.getElementById('squadBuddyName').value.trim();
+  var room = document.getElementById('squadRoom').value.trim().replace(/\s+/g, '-');
+  var url = document.getElementById('squadFirebaseUrl').value.trim().replace(/\/$/, '');
+
+  if (!myName || !buddyName || !room || !url) {
+    alert('Please fill in all fields.');
+    return;
   }
-};
+
+  squadCfg = { myName: myName, buddyName: buddyName, room: room, firebaseUrl: url };
+  localStorage.setItem(SQUAD_SK, JSON.stringify(squadCfg));
+  document.getElementById('squadModal').classList.remove('show');
+  squadPushMyData();
+  startSquadPolling();
+  render();
+}
+
+function squadFirebasePath(name) {
+  // Sanitise name for Firebase key (no . # $ [ ] /)
+  var key = name.replace(/[.#$\[\]\/]/g, '_').toLowerCase();
+  return squadCfg.firebaseUrl + '/rooms/' + encodeURIComponent(squadCfg.room) + '/' + key + '.json';
+}
+
+function squadPushMyData() {
+  if (!squadCfg) return;
+  var today = getTodayKey();
+  var tl = getTodayLog();
+  var payload = {
+    name: squadCfg.myName,
+    date: today,
+    pushups: tl.pushups || 0,
+    pullups: tl.pullups || 0,
+    squats: tl.squats || 0,
+    runKm: D.runningLogs[today] || 0,
+    goals: { pushups: D.goals.pushups, pullups: D.goals.pullups, squats: D.goals.squats },
+    ts: Date.now()
+  };
+  fetch(squadFirebasePath(squadCfg.myName), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(function() { /* silent fail — offline */ });
+}
+
+function squadFetchBuddy() {
+  if (!squadCfg) return;
+  fetch(squadFirebasePath(squadCfg.buddyName))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.ts) {
+        var today = getTodayKey();
+        // Only show buddy data if it's from today
+        buddyData = (data.date === today) ? data : null;
+        render();
+      }
+    })
+    .catch(function() { /* offline */ });
+}
+
+function startSquadPolling() {
+  if (squadPollTimer) clearInterval(squadPollTimer);
+  if (!squadCfg) return;
+  squadFetchBuddy(); // immediate fetch
+  squadPollTimer = setInterval(squadFetchBuddy, 30000); // then every 30s
+}
+
+function openSquadModal() {
+  if (squadCfg) {
+    document.getElementById('squadMyName').value = squadCfg.myName;
+    document.getElementById('squadBuddyName').value = squadCfg.buddyName;
+    document.getElementById('squadRoom').value = squadCfg.room;
+    document.getElementById('squadFirebaseUrl').value = squadCfg.firebaseUrl;
+  }
+  document.getElementById('squadModal').classList.add('show');
+}
+
+function renderSquadCard() {
+  if (!squadCfg) {
+    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">See each other\'s progress live</div></div></div>' +
+      '<div class="squad-status">Connect with a mate — you\'ll see their reps update every 30 seconds</div>' +
+      '<button class="squad-setup-btn" onclick="openSquadModal()">🔗 Set Up Squad</button></div>';
+  }
+
+  var today = getTodayKey();
+  var tl = getTodayLog();
+  var runKm = D.runningLogs[today] || 0;
+
+  // My column
+  var myCol = '<div class="squad-col"><div class="squad-col-name me">🟣 ' + squadCfg.myName + ' (you)</div>';
+  EX.forEach(function(e) {
+    var done = tl[e.id] || 0;
+    var goal = D.goals[e.id];
+    var pct = goal > 0 ? Math.round(done / goal * 100) : 0;
+    myCol += '<div class="squad-row"><span>' + e.icon + ' ' + e.label + '</span><span>' + done + ' <span style="color:#a78bfa;font-size:11px">(' + pct + '%)</span></span></div>';
+  });
+  if (runKm > 0) myCol += '<div class="squad-row"><span>🏃 Run</span><span>' + runKm.toFixed(1) + 'km</span></div>';
+  myCol += '</div>';
+
+  // Buddy column
+  var buddyCol = '<div class="squad-col"><div class="squad-col-name buddy">🟡 ' + squadCfg.buddyName + '</div>';
+  if (buddyData) {
+    EX.forEach(function(e) {
+      var done = buddyData[e.id] || 0;
+      var goal = (buddyData.goals && buddyData.goals[e.id]) || 0;
+      var pct = goal > 0 ? Math.round(done / goal * 100) : 0;
+      buddyCol += '<div class="squad-row"><span>' + e.icon + ' ' + e.label + '</span><span>' + done + (goal > 0 ? ' <span style="color:#a78bfa;font-size:11px">(' + pct + '%)</span>' : '') + '</span></div>';
+    });
+    if ((buddyData.runKm || 0) > 0) buddyCol += '<div class="squad-row"><span>🏃 Run</span><span>' + (buddyData.runKm).toFixed(1) + 'km</span></div>';
+    var minsAgo = Math.round((Date.now() - buddyData.ts) / 60000);
+    buddyCol += '</div>';
+    var lastSeen = minsAgo < 1 ? 'just now' : minsAgo < 60 ? minsAgo + 'm ago' : Math.round(minsAgo/60) + 'h ago';
+    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">🟢 Live • updates every 30s</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
+      '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
+      '<div class="squad-last-seen">Last seen ' + squadCfg.buddyName + ': ' + lastSeen + '</div></div>';
+  } else {
+    buddyCol += '<div style="color:#a78bfa;font-size:13px;font-weight:600;padding:8px 0">Waiting for today\'s data…</div></div>';
+    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">⏳ Waiting for buddy…</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
+      '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
+      '<div class="squad-last-seen">No data from ' + squadCfg.buddyName + ' today yet</div></div>';
+  }
+}
+
+// Init squad on load
+loadSquadConfig();
+if (squadCfg) startSquadPolling();
 </script>
 </body>
 </html>

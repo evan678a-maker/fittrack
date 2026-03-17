@@ -272,8 +272,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="modal-sub">You and your mate share the same Room Code</div>
     <label class="squad-modal-label">Your nickname</label>
     <input class="squad-modal-input" type="text" id="squadMyName" placeholder="e.g. Evan" maxlength="20">
-    <label class="squad-modal-label">Buddy's nickname</label>
-    <input class="squad-modal-input" type="text" id="squadBuddyName" placeholder="e.g. Michael" maxlength="20">
+    <label class="squad-modal-label">Buddy's nickname (must match what they entered)</label>
+    <input class="squad-modal-input" type="text" id="squadBuddyName" placeholder="Exactly as they typed it" maxlength="20">
     <label class="squad-modal-label">Room code (pick any shared secret)</label>
     <input class="squad-modal-input" type="text" id="squadRoom" placeholder="e.g. fitmates-2025" maxlength="40">
     <label class="squad-modal-label">Firebase DB URL</label>
@@ -1023,6 +1023,28 @@ function showDayDetail(dk) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   SQUAD SYSTEM — Real-time buddy progress via Firebase Realtime DB REST API
+   
+   HOW IT WORKS:
+   1. You and your buddy both set up Squad with the SAME room code
+   2. Every time you log reps, your data is pushed to Firebase
+   3. Your app polls Firebase every 3s to fetch buddy's latest data
+   4. No SDK needed — plain fetch() against the Firebase REST API
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var SQUAD_SK = 'fittrack-squad-v1';
+var squadCfg = null;       // { myName, buddyName, room, firebaseUrl }
+var buddyData = null;      // latest data fetched from Firebase for buddy
+var squadPollTimer = null;
+
+function loadSquadConfig() {
+  try {
+    var raw = localStorage.getItem(SQUAD_SK);
+    squadCfg = raw ? JSON.parse(raw) : null;
+  } catch(e) { squadCfg = null; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    APP INITIALIZATION & AUTO-REFRESH
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -1032,18 +1054,25 @@ loadData();
 // 2. Run rollover check (this is the key fix)
 rolloverIfNeeded();
 
-// 3. Show goal setup if first time
+// 3. Load squad config BEFORE render so the squad card shows correctly
+loadSquadConfig();
+
+// 4. Show goal setup if first time
 if (!localStorage.getItem(SK) && Object.keys(D.dailyLogs).length <= 1) {
   document.getElementById('goalModal').classList.add('show');
 }
 
-// 4. Initial render
+// 5. Initial render (squad config is now loaded, so squad card renders correctly)
 render();
 
-// 5. Auto-refresh when app becomes visible (returning from background)
+// 6. Start squad polling after render
+if (squadCfg) startSquadPolling();
+
+// 7. Auto-refresh when app becomes visible (returning from background)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
     loadData();               // Re-read from storage
+    loadSquadConfig();        // Re-read squad config
     var changed = rolloverIfNeeded();  // Check for new day
     if (changed) {
       calYear = new Date().getFullYear();
@@ -1051,6 +1080,8 @@ document.addEventListener('visibilitychange', function() {
     }
     render();
     if (curPage === 1) renderCal();
+    // Restart squad polling (timer may have been killed by OS)
+    if (squadCfg) startSquadPolling();
   }
 });
 
@@ -1068,34 +1099,6 @@ setInterval(function() {
 // 7. Register service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(function() {});
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SQUAD SYSTEM — Real-time buddy progress via Firebase Realtime DB REST API
-   
-   HOW IT WORKS:
-   1. You and Michael both set up Squad with the SAME room code
-   2. Every time you log reps, your data is pushed to Firebase
-   3. Your app polls Firebase every 30s to fetch Michael's latest data
-   4. No SDK needed — plain fetch() against the Firebase REST API
-   
-   FIREBASE SETUP (free, ~2 minutes):
-   1. Go to console.firebase.google.com → New project (any name)
-   2. Build → Realtime Database → Create database → Start in TEST MODE
-   3. Copy the database URL (looks like https://xxx-default-rtdb.firebaseio.com)
-   4. Paste it into the Squad setup screen in the app
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-var SQUAD_SK = 'fittrack-squad-v1';
-var squadCfg = null;       // { myName, buddyName, room, firebaseUrl }
-var buddyData = null;      // latest data fetched from Firebase for buddy
-var squadPollTimer = null;
-
-function loadSquadConfig() {
-  try {
-    var raw = localStorage.getItem(SQUAD_SK);
-    squadCfg = raw ? JSON.parse(raw) : null;
-  } catch(e) { squadCfg = null; }
 }
 
 function saveSquadConfig() {
@@ -1118,8 +1121,8 @@ function saveSquadConfig() {
 }
 
 function squadFirebasePath(name) {
-  // Sanitise name for Firebase key (no . # $ [ ] /)
-  var key = name.replace(/[.#$\[\]\/]/g, '_').toLowerCase();
+  // Sanitise name for Firebase key (no . # $ [ ] / or spaces)
+  var key = name.replace(/[.#$\[\]\/\s]/g, '').toLowerCase();
   return squadCfg.firebaseUrl + '/rooms/' + encodeURIComponent(squadCfg.room) + '/' + key + '.json';
 }
 
@@ -1156,16 +1159,14 @@ function squadFetchBuddy() {
   fetch(squadFirebasePath(squadCfg.buddyName))
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data && data.ts) {
-        var today = getTodayKey();
-        var newBuddy = (data.date === today) ? data : null;
-        // Only update DOM if data actually changed
-        var oldTs = buddyData ? buddyData.ts : 0;
-        var newTs = newBuddy ? newBuddy.ts : 0;
-        if (newTs !== oldTs) {
-          buddyData = newBuddy;
-          updateSquadCard();
-        }
+      var today = getTodayKey();
+      var newBuddy = (data && data.ts && data.date === today) ? data : null;
+      // Only update DOM if data actually changed
+      var oldTs = buddyData ? buddyData.ts : 0;
+      var newTs = newBuddy ? newBuddy.ts : 0;
+      if (newTs !== oldTs) {
+        buddyData = newBuddy;
+        updateSquadCard();
       }
     })
     .catch(function() { /* offline */ });
@@ -1296,9 +1297,7 @@ function renderSquadCard() {
   }
 }
 
-// Init squad on load
-loadSquadConfig();
-if (squadCfg) startSquadPolling();
+// Squad functions are initialized in the APP INITIALIZATION section above
 </script>
 </body>
 </html>

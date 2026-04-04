@@ -13,10 +13,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg,#dbeafe 0%,#e0f2fe 15%,#f0f9ff 40%,#fff 100%);height:100vh;height:100dvh;overflow:hidden;color:#0c4a6e}
+body{font-family:'Outfit',system-ui,sans-serif;background:#dbeafe;height:100vh;height:100dvh;overflow:hidden;color:#0c4a6e}
 .pages-wrap{display:flex;width:200vw;height:100vh;height:100dvh;transition:transform .35s cubic-bezier(.4,0,.2,1)}
 .pages-wrap.on-cal{transform:translateX(-100vw)}
-.page{width:100vw;height:100vh;height:100dvh;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.page{width:100vw;height:100vh;height:100dvh;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,#dbeafe 0%,#e0f2fe 15%,#f0f9ff 40%,#fff 100%)}
 
 .page-dots{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:90}
 .page-dot{width:8px;height:8px;border-radius:50%;background:rgba(14,165,233,.25);transition:all .3s;cursor:pointer}
@@ -865,9 +865,7 @@ function goPage(p) {
   document.getElementById('pagesWrap').classList.toggle('on-cal', p === 1);
   document.getElementById('dot0').classList.toggle('active', p === 0);
   document.getElementById('dot1').classList.toggle('active', p === 1);
-  // Scroll the target page to top so it doesn't land mid-scroll
   document.getElementById(p === 1 ? 'pageCal' : 'pageDash').scrollTop = 0;
-  window.scrollTo(0, 0);
   if (p === 1) renderCal();
 }
 

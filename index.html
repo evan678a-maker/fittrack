@@ -149,19 +149,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .squad-modal-input{width:100%;border:2px solid #ddd6fe;border-radius:14px;padding:12px 16px;font-size:16px;font-family:inherit;outline:none;font-weight:700;color:#4c1d95;background:#faf5ff;margin-bottom:14px}
 .squad-modal-input:focus{border-color:#8b5cf6}
 .squad-last-seen{font-size:11px;color:#a78bfa;font-weight:500;text-align:center;margin-top:6px}
-.squad-react-bar{display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap}
-.squad-react-btn{background:rgba(255,255,255,.7);border:1.5px solid rgba(139,92,246,.15);border-radius:12px;padding:6px 10px;font-size:20px;cursor:pointer;transition:transform .15s;line-height:1}
-.squad-react-btn:active{transform:scale(1.3)}
-.squad-msg-row{display:flex;gap:6px;margin-top:8px}
-.squad-msg-input{flex:1;border:1.5px solid #ddd6fe;border-radius:12px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;font-weight:600;color:#4c1d95;background:rgba(255,255,255,.7)}
-.squad-msg-input:focus{border-color:#8b5cf6}
-.squad-msg-send{background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:none;border-radius:12px;padding:8px 14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
-.squad-msg-send:active{transform:scale(.93)}
-.squad-incoming{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(255,255,255,.95);border-radius:28px;padding:32px 40px;text-align:center;z-index:2000;box-shadow:0 24px 64px rgba(0,0,0,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:none;opacity:0;transition:all .4s cubic-bezier(.4,0,.2,1)}
-.squad-incoming.show{transform:translate(-50%,-50%) scale(1);opacity:1}
-.squad-incoming-emoji{font-size:64px;line-height:1;margin-bottom:8px}
-.squad-incoming-from{font-size:14px;font-weight:800;color:#4c1d95;margin-bottom:4px}
-.squad-incoming-msg{font-size:15px;font-weight:600;color:#6d28d9;max-width:240px;word-wrap:break-word}
 .squad-feed{margin-top:10px;max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .squad-feed-title{font-weight:800;font-size:12px;color:#6d28d9;margin-bottom:6px;display:flex;align-items:center;gap:4px}
 .squad-feed-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:10px;margin-bottom:3px;font-size:12px;font-weight:600}
@@ -263,11 +250,6 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <div class="page-dot" id="dot1" onclick="goPage(1)"></div>
 </div>
 <div class="toast" id="toast"></div>
-<div class="squad-incoming" id="squadIncoming">
-  <div class="squad-incoming-emoji" id="squadIncomingEmoji"></div>
-  <div class="squad-incoming-from" id="squadIncomingFrom"></div>
-  <div class="squad-incoming-msg" id="squadIncomingMsg"></div>
-</div>
 
 <div class="modal-bg" id="goalModal">
   <div class="modal">
@@ -287,16 +269,12 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 <div class="modal-bg" id="squadModal">
   <div class="modal">
     <div class="modal-title">👥 Squad Setup</div>
-    <div class="modal-sub">You and your mate share the same Room Code</div>
-    <label class="squad-modal-label">Your nickname</label>
-    <input class="squad-modal-input" type="text" id="squadMyName" placeholder="e.g. Evan" maxlength="20">
-    <label class="squad-modal-label">Buddy's nickname</label>
-    <input class="squad-modal-input" type="text" id="squadBuddyName" placeholder="e.g. Michael" maxlength="20">
-    <label class="squad-modal-label">Room code (pick any shared secret)</label>
+    <div class="modal-sub">Enter your name and a room code — anyone with the same code sees your progress</div>
+    <label class="squad-modal-label">Your name</label>
+    <input class="squad-modal-input" type="text" id="squadMyName" placeholder="e.g. Michael" maxlength="20">
+    <label class="squad-modal-label">Room code</label>
     <input class="squad-modal-input" type="text" id="squadRoom" placeholder="e.g. fitmates-2025" maxlength="40">
-    <label class="squad-modal-label">Firebase DB URL</label>
-    <input class="squad-modal-input" type="text" id="squadFirebaseUrl" placeholder="https://YOUR-PROJECT-default-rtdb.firebaseio.com">
-    <button class="modal-save" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)" onclick="saveSquadConfig()">Connect 👥</button>
+    <button class="modal-save" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)" onclick="saveSquadConfig()">Join Room 👥</button>
     <button class="reset-btn" style="margin-top:10px" onclick="document.getElementById('squadModal').classList.remove('show')">Cancel</button>
   </div>
 </div>
@@ -1105,30 +1083,38 @@ if ('serviceWorker' in navigator) {
    4. Paste it into the Squad setup screen in the app
    ═══════════════════════════════════════════════════════════════════════════ */
 
-var SQUAD_SK = 'fittrack-squad-v1';
-var squadCfg = null;       // { myName, buddyName, room, firebaseUrl }
-var buddyData = null;      // latest data fetched from Firebase for buddy
+var SQUAD_SK = 'fittrack-squad-v2';
+var SQUAD_FIREBASE_URL = 'https://fittrack-38409-default-rtdb.firebaseio.com';
+var squadCfg = null;       // { myName, room }
+var squadMembers = {};     // { sanitisedKey: { name, pushups, pullups, squats, runKm, goals, activity, ts, date } }
 var squadPollTimer = null;
 
 function loadSquadConfig() {
   try {
     var raw = localStorage.getItem(SQUAD_SK);
     squadCfg = raw ? JSON.parse(raw) : null;
+    // Migrate from old v1 config if exists
+    if (!squadCfg) {
+      var oldRaw = localStorage.getItem('fittrack-squad-v1');
+      if (oldRaw) {
+        var old = JSON.parse(oldRaw);
+        squadCfg = { myName: old.myName, room: old.room };
+        localStorage.setItem(SQUAD_SK, JSON.stringify(squadCfg));
+      }
+    }
   } catch(e) { squadCfg = null; }
 }
 
 function saveSquadConfig() {
   var myName = document.getElementById('squadMyName').value.trim();
-  var buddyName = document.getElementById('squadBuddyName').value.trim();
   var room = document.getElementById('squadRoom').value.trim().replace(/\s+/g, '-');
-  var url = document.getElementById('squadFirebaseUrl').value.trim().replace(/\/$/, '');
 
-  if (!myName || !buddyName || !room || !url) {
-    alert('Please fill in all fields.');
+  if (!myName || !room) {
+    alert('Please enter your name and a room code.');
     return;
   }
 
-  squadCfg = { myName: myName, buddyName: buddyName, room: room, firebaseUrl: url };
+  squadCfg = { myName: myName, room: room };
   localStorage.setItem(SQUAD_SK, JSON.stringify(squadCfg));
   document.getElementById('squadModal').classList.remove('show');
   squadPushMyData();
@@ -1136,17 +1122,22 @@ function saveSquadConfig() {
   render();
 }
 
-function squadFirebasePath(name) {
-  // Sanitise name for Firebase key (no . # $ [ ] /)
-  var key = name.replace(/[.#$\[\]\/]/g, '_').toLowerCase();
-  return squadCfg.firebaseUrl + '/rooms/' + encodeURIComponent(squadCfg.room) + '/' + key + '.json';
+function sanitiseKey(name) {
+  return name.replace(/[.#$\[\]\/\s]/g, '').toLowerCase();
+}
+
+function squadRoomUrl() {
+  return SQUAD_FIREBASE_URL + '/rooms/' + encodeURIComponent(squadCfg.room);
+}
+
+function squadMemberPath(name) {
+  return squadRoomUrl() + '/' + sanitiseKey(name) + '.json';
 }
 
 function squadPushMyData() {
   if (!squadCfg) return;
   var today = getTodayKey();
   var tl = getTodayLog();
-  // Filter activity log to only today's entries (last 20 max)
   var todayStart = parseLocalDate(today).getTime();
   var todayEnd = todayStart + 86400000;
   var todayLog = (D.activityLog || []).filter(function(e) {
@@ -1163,34 +1154,61 @@ function squadPushMyData() {
     activity: todayLog,
     ts: Date.now()
   };
-  fetch(squadFirebasePath(squadCfg.myName), {
+  fetch(squadMemberPath(squadCfg.myName), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  }).catch(function() { /* silent fail — offline */ });
+  }).catch(function() {});
 }
 
-function squadFetchBuddy() {
+function squadFetchRoom() {
   if (!squadCfg) return;
-  fetch(squadFirebasePath(squadCfg.buddyName))
+  // Fetch the entire room — all members at once
+  fetch(squadRoomUrl() + '.json')
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data && data.ts) {
-        var today = getTodayKey();
-        var newBuddy = (data.date === today) ? data : null;
-        // Only update DOM if data actually changed
-        var oldTs = buddyData ? buddyData.ts : 0;
-        var newTs = newBuddy ? newBuddy.ts : 0;
+      if (!data || typeof data !== 'object') return;
+      var today = getTodayKey();
+      var myKey = sanitiseKey(squadCfg.myName);
+      var changed = false;
+
+      // Check each member in the room
+      Object.keys(data).forEach(function(key) {
+        // Skip reaction nodes and my own data
+        if (key.indexOf('reactions_') === 0) return;
+        if (key === myKey) return;
+
+        var member = data[key];
+        if (!member || !member.ts) return;
+
+        // Only show today's data
+        var memberData = (member.date === today) ? member : null;
+        var oldTs = (squadMembers[key] && squadMembers[key].ts) || 0;
+        var newTs = memberData ? memberData.ts : 0;
+
         if (newTs !== oldTs) {
-          buddyData = newBuddy;
-          updateSquadCard();
+          if (memberData) {
+            squadMembers[key] = memberData;
+          } else {
+            delete squadMembers[key];
+          }
+          changed = true;
         }
-      }
+      });
+
+      // Remove members no longer in Firebase
+      Object.keys(squadMembers).forEach(function(key) {
+        if (!data[key]) {
+          delete squadMembers[key];
+          changed = true;
+        }
+      });
+
+      if (changed) updateSquadCard();
     })
-    .catch(function() { /* offline */ });
+    .catch(function() {});
 }
 
-// Lightweight update — only replaces the squad card, not the full page
 function updateSquadCard() {
   var squadEl = document.querySelector('.squad-card');
   if (squadEl) {
@@ -1203,16 +1221,14 @@ function updateSquadCard() {
 function startSquadPolling() {
   if (squadPollTimer) clearInterval(squadPollTimer);
   if (!squadCfg) return;
-  squadFetchBuddy(); // immediate fetch
-  squadPollTimer = setInterval(squadFetchBuddy, 3000); // every 3s for near-real-time
+  squadFetchRoom();
+  squadPollTimer = setInterval(squadFetchRoom, 3000);
 }
 
 function openSquadModal() {
   if (squadCfg) {
     document.getElementById('squadMyName').value = squadCfg.myName;
-    document.getElementById('squadBuddyName').value = squadCfg.buddyName;
     document.getElementById('squadRoom').value = squadCfg.room;
-    document.getElementById('squadFirebaseUrl').value = squadCfg.firebaseUrl;
   }
   document.getElementById('squadModal').classList.add('show');
 }
@@ -1243,16 +1259,18 @@ function renderActivityFeed() {
     return { who: 'me', name: squadCfg.myName, id: e.id, n: e.n, t: e.t };
   });
 
-  // Collect buddy activity
-  var buddyActs = [];
-  if (buddyData && buddyData.activity) {
-    buddyActs = buddyData.activity.map(function(e) {
-      return { who: 'buddy', name: squadCfg.buddyName, id: e.id, n: e.n, t: e.t };
-    });
-  }
+  // Collect all members' activity
+  var memberActs = [];
+  Object.keys(squadMembers).forEach(function(key) {
+    var m = squadMembers[key];
+    if (m && m.activity) {
+      m.activity.forEach(function(e) {
+        memberActs.push({ who: 'buddy', name: m.name || key, id: e.id, n: e.n, t: e.t });
+      });
+    }
+  });
 
-  // Merge and sort by time descending (most recent first)
-  var all = myActs.concat(buddyActs).sort(function(a, b) { return b.t - a.t; });
+  var all = myActs.concat(memberActs).sort(function(a, b) { return b.t - a.t; });
   if (all.length === 0) return '';
 
   var html = '<div class="squad-feed"><div class="squad-feed-title">⚡ Live Activity</div>';
@@ -1267,11 +1285,27 @@ function renderActivityFeed() {
   return html;
 }
 
+function renderMemberCol(member) {
+  var html = '<div class="squad-col"><div class="squad-col-name buddy">🟡 ' + (member.name || '?') + '</div>';
+  EX.forEach(function(e) {
+    var done = member[e.id] || 0;
+    var goal = (member.goals && member.goals[e.id]) || 0;
+    var pct = goal > 0 ? Math.round(done / goal * 100) : 0;
+    html += '<div class="squad-row"><span>' + e.icon + ' ' + e.label + '</span><span>' + done + (goal > 0 ? ' <span style="color:#a78bfa;font-size:11px">(' + pct + '%)</span>' : '') + '</span></div>';
+  });
+  if ((member.runKm || 0) > 0) html += '<div class="squad-row"><span>🏃 Run</span><span>' + member.runKm.toFixed(1) + 'km</span></div>';
+  var minsAgo = Math.round((Date.now() - member.ts) / 60000);
+  var lastSeen = minsAgo < 1 ? 'just now' : minsAgo < 60 ? minsAgo + 'm ago' : Math.round(minsAgo/60) + 'h ago';
+  html += '<div style="font-size:10px;color:#a78bfa;margin-top:4px">' + lastSeen + '</div>';
+  html += '</div>';
+  return html;
+}
+
 function renderSquadCard() {
   if (!squadCfg) {
-    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">See each other\'s progress live</div></div></div>' +
-      '<div class="squad-status">Connect with a mate — you\'ll see their reps update in real time</div>' +
-      '<button class="squad-setup-btn" onclick="openSquadModal()">🔗 Set Up Squad</button></div>';
+    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">See your group\'s progress live</div></div></div>' +
+      '<div class="squad-status">Join a room — anyone with the same code sees everyone\'s reps</div>' +
+      '<button class="squad-setup-btn" onclick="openSquadModal()">🔗 Join Squad</button></div>';
   }
 
   var today = getTodayKey();
@@ -1289,133 +1323,39 @@ function renderSquadCard() {
   if (runKm > 0) myCol += '<div class="squad-row"><span>🏃 Run</span><span>' + runKm.toFixed(1) + 'km</span></div>';
   myCol += '</div>';
 
-  // Buddy column
-  var buddyCol = '<div class="squad-col"><div class="squad-col-name buddy">🟡 ' + squadCfg.buddyName + '</div>';
-  if (buddyData) {
-    EX.forEach(function(e) {
-      var done = buddyData[e.id] || 0;
-      var goal = (buddyData.goals && buddyData.goals[e.id]) || 0;
-      var pct = goal > 0 ? Math.round(done / goal * 100) : 0;
-      buddyCol += '<div class="squad-row"><span>' + e.icon + ' ' + e.label + '</span><span>' + done + (goal > 0 ? ' <span style="color:#a78bfa;font-size:11px">(' + pct + '%)</span>' : '') + '</span></div>';
-    });
-    if ((buddyData.runKm || 0) > 0) buddyCol += '<div class="squad-row"><span>🏃 Run</span><span>' + (buddyData.runKm).toFixed(1) + 'km</span></div>';
-    var minsAgo = Math.round((Date.now() - buddyData.ts) / 60000);
-    buddyCol += '</div>';
-    var lastSeen = minsAgo < 1 ? 'just now' : minsAgo < 60 ? minsAgo + 'm ago' : Math.round(minsAgo/60) + 'h ago';
-    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">🟢 Live • updates every 3s</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
-      '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
-      renderActivityFeed() +
-      renderReactionBar() +
-      '<div class="squad-last-seen">Last seen ' + squadCfg.buddyName + ': ' + lastSeen + '</div></div>';
+  // Member columns
+  var memberKeys = Object.keys(squadMembers);
+  var memberCols = '';
+  memberKeys.forEach(function(key) {
+    memberCols += renderMemberCol(squadMembers[key]);
+  });
+
+  var memberCount = memberKeys.length;
+  var statusText = memberCount > 0
+    ? '🟢 Live • ' + (memberCount + 1) + ' in room • updates every 3s'
+    : '⏳ Waiting for others to join…';
+
+  var gridStyle = memberCount > 1
+    ? 'display:grid;grid-template-columns:repeat(' + Math.min(memberCount + 1, 3) + ',1fr);gap:10px;margin-bottom:14px;overflow-x:auto'
+    : '';
+  if (!gridStyle) gridStyle = '';
+
+  var html = '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">' + statusText + '</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>';
+
+  if (memberCount <= 1) {
+    html += '<div class="squad-grid">' + myCol + (memberCols || '<div class="squad-col"><div class="squad-col-name buddy">🟡 …</div><div style="color:#a78bfa;font-size:13px;font-weight:600;padding:8px 0">Waiting for members…</div></div>') + '</div>';
   } else {
-    buddyCol += '<div style="color:#a78bfa;font-size:13px;font-weight:600;padding:8px 0">Waiting for today\'s data…</div></div>';
-    return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">⏳ Waiting for buddy…</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
-      '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
-      renderActivityFeed() +
-      renderReactionBar() +
-      '<div class="squad-last-seen">No data from ' + squadCfg.buddyName + ' today yet</div></div>';
+    html += '<div style="' + gridStyle + '">' + myCol + memberCols + '</div>';
   }
+
+  html += renderActivityFeed();
+  html += '</div>';
+  return html;
 }
 
 // Init squad on load
 loadSquadConfig();
 if (squadCfg) startSquadPolling();
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   EMOJI REACTIONS — Send emoji + optional message to your buddy via Firebase
-   
-   HOW IT WORKS:
-   1. You tap an emoji (or type a message + emoji) → written to Firebase
-   2. Buddy's app polls a separate "reactions" node every 3s
-   3. When a new reaction is detected, it pops up as an animated overlay
-   4. Each reaction has a timestamp — only new ones trigger the popup
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-var REACT_EMOJIS = ['🔥', '💀', '😤', '👑', '💪', '🐌', '😂', '🫡'];
-var lastReactionTs = 0; // track last seen reaction to avoid re-showing
-
-function squadReactPath(targetName) {
-  var key = targetName.replace(/[.#$\[\]\/\s]/g, '').toLowerCase();
-  return squadCfg.firebaseUrl + '/rooms/' + encodeURIComponent(squadCfg.room) + '/reactions_' + key + '.json';
-}
-
-function sendReaction(emoji) {
-  if (!squadCfg) return;
-  var msgInput = document.getElementById('squadMsgInput');
-  var msg = msgInput ? msgInput.value.trim() : '';
-  var payload = {
-    from: squadCfg.myName,
-    emoji: emoji,
-    msg: msg,
-    ts: Date.now()
-  };
-  // Write to buddy's reaction node (they poll this)
-  fetch(squadReactPath(squadCfg.buddyName), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).catch(function() {});
-  if (msgInput) msgInput.value = '';
-  showToast('Sent ' + emoji + ' to ' + squadCfg.buddyName);
-}
-
-function checkIncomingReactions() {
-  if (!squadCfg) return;
-  // Poll MY reaction node (buddy writes here)
-  fetch(squadReactPath(squadCfg.myName))
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data && data.ts && data.ts > lastReactionTs) {
-        lastReactionTs = data.ts;
-        showIncomingReaction(data);
-      }
-    })
-    .catch(function() {});
-}
-
-function showIncomingReaction(data) {
-  var el = document.getElementById('squadIncoming');
-  document.getElementById('squadIncomingEmoji').textContent = data.emoji || '🔥';
-  document.getElementById('squadIncomingFrom').textContent = data.from || 'Buddy';
-  var msgEl = document.getElementById('squadIncomingMsg');
-  msgEl.textContent = data.msg || '';
-  msgEl.style.display = data.msg ? 'block' : 'none';
-  el.classList.add('show');
-  // Vibrate if supported
-  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-  setTimeout(function() { el.classList.remove('show'); }, 2500);
-}
-
-function renderReactionBar() {
-  if (!squadCfg) return '';
-  var html = '<div class="squad-react-bar">';
-  REACT_EMOJIS.forEach(function(e) {
-    html += '<button class="squad-react-btn" onclick="sendReaction(\'' + e + '\')">' + e + '</button>';
-  });
-  html += '</div>';
-  html += '<div class="squad-msg-row"><input type="text" class="squad-msg-input" id="squadMsgInput" placeholder="Talk smack..." maxlength="100"><button class="squad-msg-send" onclick="sendReaction(\'💬\')">Send</button></div>';
-  return html;
-}
-
-// Start polling for incoming reactions alongside buddy data
-var reactionPollTimer = null;
-function startReactionPolling() {
-  if (reactionPollTimer) clearInterval(reactionPollTimer);
-  if (!squadCfg) return;
-  checkIncomingReactions();
-  reactionPollTimer = setInterval(checkIncomingReactions, 3000);
-}
-
-// Hook into squad startup
-(function() {
-  var origStart = startSquadPolling;
-  startSquadPolling = function() {
-    origStart();
-    startReactionPolling();
-  };
-  // If already started, kick off reaction polling too
-  if (squadCfg) startReactionPolling();
-}());
 </script>
 </body>
 </html>

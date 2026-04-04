@@ -155,6 +155,25 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .squad-feed-item.me{background:rgba(139,92,246,.08);color:#4c1d95}
 .squad-feed-item.buddy{background:rgba(251,191,36,.08);color:#92400e}
 .squad-feed-time{font-size:11px;color:#a78bfa;font-weight:500;white-space:nowrap;margin-left:8px}
+.squad-react-bar{display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.squad-react-btn{background:rgba(255,255,255,.7);border:1.5px solid rgba(139,92,246,.15);border-radius:12px;padding:6px 10px;font-size:20px;cursor:pointer;transition:transform .15s;line-height:1}
+.squad-react-btn:active{transform:scale(1.3)}
+.squad-msg-row{display:flex;gap:6px;margin-top:8px}
+.squad-msg-input{flex:1;border:1.5px solid #ddd6fe;border-radius:12px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;font-weight:600;color:#4c1d95;background:rgba(255,255,255,.7)}
+.squad-msg-input:focus{border-color:#8b5cf6}
+.squad-msg-send{background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:none;border-radius:12px;padding:8px 14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+.squad-msg-send:active{transform:scale(.93)}
+.squad-incoming{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(255,255,255,.95);border-radius:28px;padding:32px 40px;text-align:center;z-index:2000;box-shadow:0 24px 64px rgba(0,0,0,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:none;opacity:0;transition:all .4s cubic-bezier(.4,0,.2,1)}
+.squad-incoming.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.squad-incoming-emoji{font-size:64px;line-height:1;margin-bottom:8px}
+.squad-incoming-from{font-size:14px;font-weight:800;color:#4c1d95;margin-bottom:4px}
+.squad-incoming-msg{font-size:15px;font-weight:600;color:#6d28d9;max-width:240px;word-wrap:break-word}
+.squad-feed{margin-top:10px;max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.squad-feed-title{font-weight:800;font-size:12px;color:#6d28d9;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.squad-feed-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:10px;margin-bottom:3px;font-size:12px;font-weight:600}
+.squad-feed-item.me{background:rgba(139,92,246,.08);color:#4c1d95}
+.squad-feed-item.buddy{background:rgba(251,191,36,.08);color:#92400e}
+.squad-feed-time{font-size:11px;color:#a78bfa;font-weight:500;white-space:nowrap;margin-left:8px}
 
 .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(40px);opacity:0;background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff;padding:12px 28px;border-radius:50px;font-weight:700;font-size:15px;box-shadow:0 8px 32px rgba(14,165,233,.35);z-index:999;pointer-events:none;white-space:nowrap;transition:all .4s cubic-bezier(.4,0,.2,1)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -250,6 +269,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <div class="page-dot" id="dot1" onclick="goPage(1)"></div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="squad-incoming" id="squadIncoming">
+  <div class="squad-incoming-emoji" id="squadIncomingEmoji"></div>
+  <div class="squad-incoming-from" id="squadIncomingFrom"></div>
+  <div class="squad-incoming-msg" id="squadIncomingMsg"></div>
+</div>
 
 <div class="modal-bg" id="goalModal">
   <div class="modal">
@@ -1068,32 +1092,27 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SQUAD SYSTEM — Real-time buddy progress via Firebase Realtime DB REST API
+   SQUAD SYSTEM — Group-based progress tracking via Firebase Realtime DB
    
    HOW IT WORKS:
-   1. You and Michael both set up Squad with the SAME room code
-   2. Every time you log reps, your data is pushed to Firebase
-   3. Your app polls Firebase every 30s to fetch Michael's latest data
-   4. No SDK needed — plain fetch() against the Firebase REST API
-   
-   FIREBASE SETUP (free, ~2 minutes):
-   1. Go to console.firebase.google.com → New project (any name)
-   2. Build → Realtime Database → Create database → Start in TEST MODE
-   3. Copy the database URL (looks like https://xxx-default-rtdb.firebaseio.com)
-   4. Paste it into the Squad setup screen in the app
+   1. Enter your name + a room code → you're in a group
+   2. Anyone with the same room code appears in your squad
+   3. Every time you log reps, your data is pushed to Firebase
+   4. Your app polls the entire room every 3s
+   5. No buddy name needed — the room auto-discovers all members
    ═══════════════════════════════════════════════════════════════════════════ */
 
 var SQUAD_SK = 'fittrack-squad-v2';
 var SQUAD_FIREBASE_URL = 'https://fittrack-38409-default-rtdb.firebaseio.com';
 var squadCfg = null;       // { myName, room }
-var squadMembers = {};     // { sanitisedKey: { name, pushups, pullups, squats, runKm, goals, activity, ts, date } }
+var squadMembers = {};     // { sanitisedKey: memberData }
 var squadPollTimer = null;
 
 function loadSquadConfig() {
   try {
     var raw = localStorage.getItem(SQUAD_SK);
     squadCfg = raw ? JSON.parse(raw) : null;
-    // Migrate from old v1 config if exists
+    // Migrate from old v1 config
     if (!squadCfg) {
       var oldRaw = localStorage.getItem('fittrack-squad-v1');
       if (oldRaw) {
@@ -1163,7 +1182,6 @@ function squadPushMyData() {
 
 function squadFetchRoom() {
   if (!squadCfg) return;
-  // Fetch the entire room — all members at once
   fetch(squadRoomUrl() + '.json')
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -1172,26 +1190,17 @@ function squadFetchRoom() {
       var myKey = sanitiseKey(squadCfg.myName);
       var changed = false;
 
-      // Check each member in the room
       Object.keys(data).forEach(function(key) {
-        // Skip reaction nodes and my own data
         if (key.indexOf('reactions_') === 0) return;
         if (key === myKey) return;
-
         var member = data[key];
         if (!member || !member.ts) return;
 
-        // Only show today's data
-        var memberData = (member.date === today) ? member : null;
+        // Show members regardless of date — just mark if data is from today
         var oldTs = (squadMembers[key] && squadMembers[key].ts) || 0;
-        var newTs = memberData ? memberData.ts : 0;
-
-        if (newTs !== oldTs) {
-          if (memberData) {
-            squadMembers[key] = memberData;
-          } else {
-            delete squadMembers[key];
-          }
+        if (member.ts !== oldTs) {
+          member._isToday = (member.date === today);
+          squadMembers[key] = member;
           changed = true;
         }
       });
@@ -1252,18 +1261,16 @@ function renderActivityFeed() {
   var todayStart = parseLocalDate(today).getTime();
   var todayEnd = todayStart + 86400000;
 
-  // Collect my activity
   var myActs = (D.activityLog || []).filter(function(e) {
     return e.t >= todayStart && e.t < todayEnd;
   }).map(function(e) {
     return { who: 'me', name: squadCfg.myName, id: e.id, n: e.n, t: e.t };
   });
 
-  // Collect all members' activity
   var memberActs = [];
   Object.keys(squadMembers).forEach(function(key) {
     var m = squadMembers[key];
-    if (m && m.activity) {
+    if (m && m.activity && m._isToday) {
       m.activity.forEach(function(e) {
         memberActs.push({ who: 'buddy', name: m.name || key, id: e.id, n: e.n, t: e.t });
       });
@@ -1286,14 +1293,20 @@ function renderActivityFeed() {
 }
 
 function renderMemberCol(member) {
+  var today = getTodayKey();
+  var isToday = member._isToday;
   var html = '<div class="squad-col"><div class="squad-col-name buddy">🟡 ' + (member.name || '?') + '</div>';
-  EX.forEach(function(e) {
-    var done = member[e.id] || 0;
-    var goal = (member.goals && member.goals[e.id]) || 0;
-    var pct = goal > 0 ? Math.round(done / goal * 100) : 0;
-    html += '<div class="squad-row"><span>' + e.icon + ' ' + e.label + '</span><span>' + done + (goal > 0 ? ' <span style="color:#a78bfa;font-size:11px">(' + pct + '%)</span>' : '') + '</span></div>';
-  });
-  if ((member.runKm || 0) > 0) html += '<div class="squad-row"><span>🏃 Run</span><span>' + member.runKm.toFixed(1) + 'km</span></div>';
+  if (isToday) {
+    EX.forEach(function(e) {
+      var done = member[e.id] || 0;
+      var goal = (member.goals && member.goals[e.id]) || 0;
+      var pct = goal > 0 ? Math.round(done / goal * 100) : 0;
+      html += '<div class="squad-row"><span>' + e.icon + ' ' + e.label + '</span><span>' + done + (goal > 0 ? ' <span style="color:#a78bfa;font-size:11px">(' + pct + '%)</span>' : '') + '</span></div>';
+    });
+    if ((member.runKm || 0) > 0) html += '<div class="squad-row"><span>🏃 Run</span><span>' + member.runKm.toFixed(1) + 'km</span></div>';
+  } else {
+    html += '<div style="color:#a78bfa;font-size:12px;font-weight:600;padding:4px 0">No reps today yet</div>';
+  }
   var minsAgo = Math.round((Date.now() - member.ts) / 60000);
   var lastSeen = minsAgo < 1 ? 'just now' : minsAgo < 60 ? minsAgo + 'm ago' : Math.round(minsAgo/60) + 'h ago';
   html += '<div style="font-size:10px;color:#a78bfa;margin-top:4px">' + lastSeen + '</div>';
@@ -1312,7 +1325,6 @@ function renderSquadCard() {
   var tl = getTodayLog();
   var runKm = D.runningLogs[today] || 0;
 
-  // My column
   var myCol = '<div class="squad-col"><div class="squad-col-name me">🟣 ' + squadCfg.myName + ' (you)</div>';
   EX.forEach(function(e) {
     var done = tl[e.id] || 0;
@@ -1323,7 +1335,6 @@ function renderSquadCard() {
   if (runKm > 0) myCol += '<div class="squad-row"><span>🏃 Run</span><span>' + runKm.toFixed(1) + 'km</span></div>';
   myCol += '</div>';
 
-  // Member columns
   var memberKeys = Object.keys(squadMembers);
   var memberCols = '';
   memberKeys.forEach(function(key) {
@@ -1335,27 +1346,103 @@ function renderSquadCard() {
     ? '🟢 Live • ' + (memberCount + 1) + ' in room • updates every 3s'
     : '⏳ Waiting for others to join…';
 
-  var gridStyle = memberCount > 1
-    ? 'display:grid;grid-template-columns:repeat(' + Math.min(memberCount + 1, 3) + ',1fr);gap:10px;margin-bottom:14px;overflow-x:auto'
-    : '';
-  if (!gridStyle) gridStyle = '';
-
   var html = '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">' + statusText + '</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>';
 
   if (memberCount <= 1) {
     html += '<div class="squad-grid">' + myCol + (memberCols || '<div class="squad-col"><div class="squad-col-name buddy">🟡 …</div><div style="color:#a78bfa;font-size:13px;font-weight:600;padding:8px 0">Waiting for members…</div></div>') + '</div>';
   } else {
-    html += '<div style="' + gridStyle + '">' + myCol + memberCols + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(' + Math.min(memberCount + 1, 3) + ',1fr);gap:10px;margin-bottom:14px">' + myCol + memberCols + '</div>';
   }
 
   html += renderActivityFeed();
+  html += renderReactionBar();
   html += '</div>';
   return html;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMOJI REACTIONS — Send emoji + optional message to the room via Firebase
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var REACT_EMOJIS = ['🔥', '💀', '😤', '👑', '💪', '🐌', '😂', '🫡'];
+var lastReactionTs = 0;
+
+function squadReactPath() {
+  return squadRoomUrl() + '/reactions.json';
+}
+
+function sendReaction(emoji) {
+  if (!squadCfg) return;
+  var msgInput = document.getElementById('squadMsgInput');
+  var msg = msgInput ? msgInput.value.trim() : '';
+  var payload = {
+    from: squadCfg.myName,
+    emoji: emoji,
+    msg: msg,
+    ts: Date.now()
+  };
+  fetch(squadReactPath(), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(function() {});
+  if (msgInput) msgInput.value = '';
+  showToast('Sent ' + emoji);
+}
+
+function checkIncomingReactions() {
+  if (!squadCfg) return;
+  fetch(squadReactPath())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.ts && data.ts > lastReactionTs) {
+        lastReactionTs = data.ts;
+        // Don't show your own reactions as popup
+        if (data.from !== squadCfg.myName) {
+          showIncomingReaction(data);
+        }
+      }
+    })
+    .catch(function() {});
+}
+
+function showIncomingReaction(data) {
+  var el = document.getElementById('squadIncoming');
+  document.getElementById('squadIncomingEmoji').textContent = data.emoji || '🔥';
+  document.getElementById('squadIncomingFrom').textContent = data.from || 'Someone';
+  var msgEl = document.getElementById('squadIncomingMsg');
+  msgEl.textContent = data.msg || '';
+  msgEl.style.display = data.msg ? 'block' : 'none';
+  el.classList.add('show');
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  setTimeout(function() { el.classList.remove('show'); }, 2500);
+}
+
+function renderReactionBar() {
+  if (!squadCfg) return '';
+  var html = '<div class="squad-react-bar">';
+  REACT_EMOJIS.forEach(function(e) {
+    html += '<button class="squad-react-btn" onclick="sendReaction(\'' + e + '\')">' + e + '</button>';
+  });
+  html += '</div>';
+  html += '<div class="squad-msg-row"><input type="text" class="squad-msg-input" id="squadMsgInput" placeholder="Talk smack..." maxlength="100"><button class="squad-msg-send" onclick="sendReaction(\'💬\')">Send</button></div>';
+  return html;
+}
+
+var reactionPollTimer = null;
+function startReactionPolling() {
+  if (reactionPollTimer) clearInterval(reactionPollTimer);
+  if (!squadCfg) return;
+  checkIncomingReactions();
+  reactionPollTimer = setInterval(checkIncomingReactions, 3000);
+}
+
 // Init squad on load
 loadSquadConfig();
-if (squadCfg) startSquadPolling();
+if (squadCfg) {
+  startSquadPolling();
+  startReactionPolling();
+}
 </script>
 </body>
 </html>

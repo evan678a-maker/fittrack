@@ -13,10 +13,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg,#dbeafe 0%,#e0f2fe 15%,#f0f9ff 40%,#fff 100%);min-height:100vh;min-height:100dvh;overflow-x:hidden;color:#0c4a6e}
-.pages-wrap{display:flex;width:200vw;transition:transform .35s cubic-bezier(.4,0,.2,1)}
+body{font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(180deg,#dbeafe 0%,#e0f2fe 15%,#f0f9ff 40%,#fff 100%);height:100vh;height:100dvh;overflow:hidden;color:#0c4a6e}
+.pages-wrap{display:flex;width:200vw;height:100vh;height:100dvh;transition:transform .35s cubic-bezier(.4,0,.2,1)}
 .pages-wrap.on-cal{transform:translateX(-100vw)}
-.page{width:100vw;min-height:100vh;min-height:100dvh;flex-shrink:0}
+.page{width:100vw;height:100vh;height:100dvh;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
 
 .page-dots{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:90}
 .page-dot{width:8px;height:8px;border-radius:50%;background:rgba(14,165,233,.25);transition:all .3s;cursor:pointer}
@@ -256,11 +256,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="modal-title">Set Your Weekly Goals 🎯</div>
     <div class="modal-sub">These goals will last for 7 days</div>
     <label class="modal-label">💪 Push-ups</label>
-    <input class="modal-input" type="number" id="goalPushups" min="1" value="100">
+    <input class="modal-input" type="number" inputmode="numeric" pattern="[0-9]*" id="goalPushups" min="1" value="100">
     <label class="modal-label">🏋️ Pull-ups</label>
-    <input class="modal-input" type="number" id="goalPullups" min="1" value="30">
+    <input class="modal-input" type="number" inputmode="numeric" pattern="[0-9]*" id="goalPullups" min="1" value="30">
     <label class="modal-label">🦵 Squats</label>
-    <input class="modal-input" type="number" id="goalSquats" min="1" value="80">
+    <input class="modal-input" type="number" inputmode="numeric" pattern="[0-9]*" id="goalSquats" min="1" value="80">
     <button class="modal-save" onclick="saveGoals()">Start Week 💪</button>
   </div>
 </div>
@@ -272,8 +272,8 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
     <div class="modal-sub">You and your mate share the same Room Code</div>
     <label class="squad-modal-label">Your nickname</label>
     <input class="squad-modal-input" type="text" id="squadMyName" placeholder="e.g. Evan" maxlength="20">
-    <label class="squad-modal-label">Buddy's nickname (must match what they entered)</label>
-    <input class="squad-modal-input" type="text" id="squadBuddyName" placeholder="Exactly as they typed it" maxlength="20">
+    <label class="squad-modal-label">Buddy's nickname</label>
+    <input class="squad-modal-input" type="text" id="squadBuddyName" placeholder="e.g. Michael" maxlength="20">
     <label class="squad-modal-label">Room code (pick any shared secret)</label>
     <input class="squad-modal-input" type="text" id="squadRoom" placeholder="e.g. fitmates-2025" maxlength="40">
     <label class="squad-modal-label">Firebase DB URL</label>
@@ -825,7 +825,7 @@ function render() {
     h += ringH(e.id, dn, g);
     if (cp) h += '<div class="goal-badge">✅ Goal Complete!</div>';
     h += '<div class="quick-adds">' + e.qa.map(function(n) { return '<button class="quick-btn" onclick="logEx(\'' + e.id + '\',' + n + ')">+' + n + '</button>'; }).join('') + '</div>';
-    h += '<div class="input-row"><input type="number" id="inp-' + e.id + '" placeholder="Custom" min="1" onkeydown="if(event.key===\'Enter\')addInp(\'' + e.id + '\')"><button class="add-btn" onclick="addInp(\'' + e.id + '\')">Add</button></div></div>';
+    h += '<div class="input-row"><input type="number" inputmode="numeric" pattern="[0-9]*" id="inp-' + e.id + '" placeholder="Custom" min="1" onkeydown="if(event.key===\'Enter\')addInp(\'' + e.id + '\')"><button class="add-btn" onclick="addInp(\'' + e.id + '\')">Add</button></div></div>';
   });
 
   // Running card
@@ -836,7 +836,7 @@ function render() {
   });
   h += '</div>';
   h += '<div class="quick-adds"><button class="quick-btn" onclick="logRun(3)">+3km</button><button class="quick-btn" onclick="logRun(5)">+5km</button><button class="quick-btn" onclick="logRun(10)">+10km</button></div>';
-  h += '<div class="input-row" style="margin-top:8px"><input type="number" step="0.1" id="inp-run" placeholder="km" min="0.1" onkeydown="if(event.key===\'Enter\')addRunInp()"><button class="add-btn" onclick="addRunInp()">Add</button></div></div>';
+  h += '<div class="input-row" style="margin-top:8px"><input type="number" inputmode="decimal" step="0.1" id="inp-run" placeholder="km" min="0.1" onkeydown="if(event.key===\'Enter\')addRunInp()"><button class="add-btn" onclick="addRunInp()">Add</button></div></div>';
 
   // Stats card
   h += '<div class="card"><div class="stats-title">📊 Statistics</div><table class="stats-table"><thead><tr><th></th><th>Today</th><th>Week</th><th>Year</th></tr></thead><tbody>';
@@ -865,6 +865,9 @@ function goPage(p) {
   document.getElementById('pagesWrap').classList.toggle('on-cal', p === 1);
   document.getElementById('dot0').classList.toggle('active', p === 0);
   document.getElementById('dot1').classList.toggle('active', p === 1);
+  // Scroll the target page to top so it doesn't land mid-scroll
+  document.getElementById(p === 1 ? 'pageCal' : 'pageDash').scrollTop = 0;
+  window.scrollTo(0, 0);
   if (p === 1) renderCal();
 }
 
@@ -1023,28 +1026,6 @@ function showDayDetail(dk) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SQUAD SYSTEM — Real-time buddy progress via Firebase Realtime DB REST API
-   
-   HOW IT WORKS:
-   1. You and your buddy both set up Squad with the SAME room code
-   2. Every time you log reps, your data is pushed to Firebase
-   3. Your app polls Firebase every 3s to fetch buddy's latest data
-   4. No SDK needed — plain fetch() against the Firebase REST API
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-var SQUAD_SK = 'fittrack-squad-v1';
-var squadCfg = null;       // { myName, buddyName, room, firebaseUrl }
-var buddyData = null;      // latest data fetched from Firebase for buddy
-var squadPollTimer = null;
-
-function loadSquadConfig() {
-  try {
-    var raw = localStorage.getItem(SQUAD_SK);
-    squadCfg = raw ? JSON.parse(raw) : null;
-  } catch(e) { squadCfg = null; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    APP INITIALIZATION & AUTO-REFRESH
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -1054,25 +1035,18 @@ loadData();
 // 2. Run rollover check (this is the key fix)
 rolloverIfNeeded();
 
-// 3. Load squad config BEFORE render so the squad card shows correctly
-loadSquadConfig();
-
-// 4. Show goal setup if first time
+// 3. Show goal setup if first time
 if (!localStorage.getItem(SK) && Object.keys(D.dailyLogs).length <= 1) {
   document.getElementById('goalModal').classList.add('show');
 }
 
-// 5. Initial render (squad config is now loaded, so squad card renders correctly)
+// 4. Initial render
 render();
 
-// 6. Start squad polling after render
-if (squadCfg) startSquadPolling();
-
-// 7. Auto-refresh when app becomes visible (returning from background)
+// 5. Auto-refresh when app becomes visible (returning from background)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
     loadData();               // Re-read from storage
-    loadSquadConfig();        // Re-read squad config
     var changed = rolloverIfNeeded();  // Check for new day
     if (changed) {
       calYear = new Date().getFullYear();
@@ -1080,8 +1054,6 @@ document.addEventListener('visibilitychange', function() {
     }
     render();
     if (curPage === 1) renderCal();
-    // Restart squad polling (timer may have been killed by OS)
-    if (squadCfg) startSquadPolling();
   }
 });
 
@@ -1099,6 +1071,34 @@ setInterval(function() {
 // 7. Register service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(function() {});
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SQUAD SYSTEM — Real-time buddy progress via Firebase Realtime DB REST API
+   
+   HOW IT WORKS:
+   1. You and Michael both set up Squad with the SAME room code
+   2. Every time you log reps, your data is pushed to Firebase
+   3. Your app polls Firebase every 30s to fetch Michael's latest data
+   4. No SDK needed — plain fetch() against the Firebase REST API
+   
+   FIREBASE SETUP (free, ~2 minutes):
+   1. Go to console.firebase.google.com → New project (any name)
+   2. Build → Realtime Database → Create database → Start in TEST MODE
+   3. Copy the database URL (looks like https://xxx-default-rtdb.firebaseio.com)
+   4. Paste it into the Squad setup screen in the app
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var SQUAD_SK = 'fittrack-squad-v1';
+var squadCfg = null;       // { myName, buddyName, room, firebaseUrl }
+var buddyData = null;      // latest data fetched from Firebase for buddy
+var squadPollTimer = null;
+
+function loadSquadConfig() {
+  try {
+    var raw = localStorage.getItem(SQUAD_SK);
+    squadCfg = raw ? JSON.parse(raw) : null;
+  } catch(e) { squadCfg = null; }
 }
 
 function saveSquadConfig() {
@@ -1121,8 +1121,8 @@ function saveSquadConfig() {
 }
 
 function squadFirebasePath(name) {
-  // Sanitise name for Firebase key (no . # $ [ ] / or spaces)
-  var key = name.replace(/[.#$\[\]\/\s]/g, '').toLowerCase();
+  // Sanitise name for Firebase key (no . # $ [ ] /)
+  var key = name.replace(/[.#$\[\]\/]/g, '_').toLowerCase();
   return squadCfg.firebaseUrl + '/rooms/' + encodeURIComponent(squadCfg.room) + '/' + key + '.json';
 }
 
@@ -1159,14 +1159,16 @@ function squadFetchBuddy() {
   fetch(squadFirebasePath(squadCfg.buddyName))
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var today = getTodayKey();
-      var newBuddy = (data && data.ts && data.date === today) ? data : null;
-      // Only update DOM if data actually changed
-      var oldTs = buddyData ? buddyData.ts : 0;
-      var newTs = newBuddy ? newBuddy.ts : 0;
-      if (newTs !== oldTs) {
-        buddyData = newBuddy;
-        updateSquadCard();
+      if (data && data.ts) {
+        var today = getTodayKey();
+        var newBuddy = (data.date === today) ? data : null;
+        // Only update DOM if data actually changed
+        var oldTs = buddyData ? buddyData.ts : 0;
+        var newTs = newBuddy ? newBuddy.ts : 0;
+        if (newTs !== oldTs) {
+          buddyData = newBuddy;
+          updateSquadCard();
+        }
       }
     })
     .catch(function() { /* offline */ });
@@ -1297,7 +1299,9 @@ function renderSquadCard() {
   }
 }
 
-// Squad functions are initialized in the APP INITIALIZATION section above
+// Init squad on load
+loadSquadConfig();
+if (squadCfg) startSquadPolling();
 </script>
 </body>
 </html>

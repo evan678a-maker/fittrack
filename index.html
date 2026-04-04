@@ -13,10 +13,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'Outfit',system-ui,sans-serif;background:#fff;height:100vh;height:100dvh;overflow:hidden;color:#0c4a6e}
-.pages-wrap{display:flex;width:200vw;height:100vh;height:100dvh;transition:transform .35s cubic-bezier(.4,0,.2,1)}
+body{font-family:'Outfit',system-ui,sans-serif;background:#f0f9ff;min-height:100vh;min-height:100dvh;overflow-x:hidden;color:#0c4a6e}
+.pages-wrap{display:flex;width:200vw;transition:transform .35s cubic-bezier(.4,0,.2,1)}
 .pages-wrap.on-cal{transform:translateX(-100vw)}
-.page{width:100vw;height:100vh;height:100dvh;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,#dbeafe 0%,#e0f2fe 15%,#f0f9ff 40%,#fff 100%)}
+.page{width:100vw;min-height:100vh;min-height:100dvh;flex-shrink:0;background:linear-gradient(180deg,#dbeafe 0%,#e0f2fe 15%,#f0f9ff 40%,#f0f9ff 100%)}
 
 .page-dots{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:90}
 .page-dot{width:8px;height:8px;border-radius:50%;background:rgba(14,165,233,.25);transition:all .3s;cursor:pointer}
@@ -149,6 +149,19 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
 .squad-modal-input{width:100%;border:2px solid #ddd6fe;border-radius:14px;padding:12px 16px;font-size:16px;font-family:inherit;outline:none;font-weight:700;color:#4c1d95;background:#faf5ff;margin-bottom:14px}
 .squad-modal-input:focus{border-color:#8b5cf6}
 .squad-last-seen{font-size:11px;color:#a78bfa;font-weight:500;text-align:center;margin-top:6px}
+.squad-react-bar{display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.squad-react-btn{background:rgba(255,255,255,.7);border:1.5px solid rgba(139,92,246,.15);border-radius:12px;padding:6px 10px;font-size:20px;cursor:pointer;transition:transform .15s;line-height:1}
+.squad-react-btn:active{transform:scale(1.3)}
+.squad-msg-row{display:flex;gap:6px;margin-top:8px}
+.squad-msg-input{flex:1;border:1.5px solid #ddd6fe;border-radius:12px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;font-weight:600;color:#4c1d95;background:rgba(255,255,255,.7)}
+.squad-msg-input:focus{border-color:#8b5cf6}
+.squad-msg-send{background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:none;border-radius:12px;padding:8px 14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+.squad-msg-send:active{transform:scale(.93)}
+.squad-incoming{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:rgba(255,255,255,.95);border-radius:28px;padding:32px 40px;text-align:center;z-index:2000;box-shadow:0 24px 64px rgba(0,0,0,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:none;opacity:0;transition:all .4s cubic-bezier(.4,0,.2,1)}
+.squad-incoming.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.squad-incoming-emoji{font-size:64px;line-height:1;margin-bottom:8px}
+.squad-incoming-from{font-size:14px;font-weight:800;color:#4c1d95;margin-bottom:4px}
+.squad-incoming-msg{font-size:15px;font-weight:600;color:#6d28d9;max-width:240px;word-wrap:break-word}
 .squad-feed{margin-top:10px;max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .squad-feed-title{font-weight:800;font-size:12px;color:#6d28d9;margin-bottom:6px;display:flex;align-items:center;gap:4px}
 .squad-feed-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:10px;margin-bottom:3px;font-size:12px;font-weight:600}
@@ -250,6 +263,11 @@ input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appear
   <div class="page-dot" id="dot1" onclick="goPage(1)"></div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="squad-incoming" id="squadIncoming">
+  <div class="squad-incoming-emoji" id="squadIncomingEmoji"></div>
+  <div class="squad-incoming-from" id="squadIncomingFrom"></div>
+  <div class="squad-incoming-msg" id="squadIncomingMsg"></div>
+</div>
 
 <div class="modal-bg" id="goalModal">
   <div class="modal">
@@ -865,7 +883,7 @@ function goPage(p) {
   document.getElementById('pagesWrap').classList.toggle('on-cal', p === 1);
   document.getElementById('dot0').classList.toggle('active', p === 0);
   document.getElementById('dot1').classList.toggle('active', p === 1);
-  document.getElementById(p === 1 ? 'pageCal' : 'pageDash').scrollTop = 0;
+  window.scrollTo(0, 0);
   if (p === 1) renderCal();
 }
 
@@ -1287,12 +1305,14 @@ function renderSquadCard() {
     return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">🟢 Live • updates every 3s</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
       '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
       renderActivityFeed() +
+      renderReactionBar() +
       '<div class="squad-last-seen">Last seen ' + squadCfg.buddyName + ': ' + lastSeen + '</div></div>';
   } else {
     buddyCol += '<div style="color:#a78bfa;font-size:13px;font-weight:600;padding:8px 0">Waiting for today\'s data…</div></div>';
     return '<div class="squad-card"><div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">⏳ Waiting for buddy…</div></div><button onclick="openSquadModal()" style="margin-left:auto;background:rgba(139,92,246,.12);border:none;border-radius:10px;padding:6px 12px;color:#6d28d9;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Edit</button></div>' +
       '<div class="squad-grid">' + myCol + buddyCol + '</div>' +
       renderActivityFeed() +
+      renderReactionBar() +
       '<div class="squad-last-seen">No data from ' + squadCfg.buddyName + ' today yet</div></div>';
   }
 }
@@ -1300,6 +1320,102 @@ function renderSquadCard() {
 // Init squad on load
 loadSquadConfig();
 if (squadCfg) startSquadPolling();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMOJI REACTIONS — Send emoji + optional message to your buddy via Firebase
+   
+   HOW IT WORKS:
+   1. You tap an emoji (or type a message + emoji) → written to Firebase
+   2. Buddy's app polls a separate "reactions" node every 3s
+   3. When a new reaction is detected, it pops up as an animated overlay
+   4. Each reaction has a timestamp — only new ones trigger the popup
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var REACT_EMOJIS = ['🔥', '💀', '😤', '👑', '💪', '🐌', '😂', '🫡'];
+var lastReactionTs = 0; // track last seen reaction to avoid re-showing
+
+function squadReactPath(targetName) {
+  var key = targetName.replace(/[.#$\[\]\/\s]/g, '').toLowerCase();
+  return squadCfg.firebaseUrl + '/rooms/' + encodeURIComponent(squadCfg.room) + '/reactions_' + key + '.json';
+}
+
+function sendReaction(emoji) {
+  if (!squadCfg) return;
+  var msgInput = document.getElementById('squadMsgInput');
+  var msg = msgInput ? msgInput.value.trim() : '';
+  var payload = {
+    from: squadCfg.myName,
+    emoji: emoji,
+    msg: msg,
+    ts: Date.now()
+  };
+  // Write to buddy's reaction node (they poll this)
+  fetch(squadReactPath(squadCfg.buddyName), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(function() {});
+  if (msgInput) msgInput.value = '';
+  showToast('Sent ' + emoji + ' to ' + squadCfg.buddyName);
+}
+
+function checkIncomingReactions() {
+  if (!squadCfg) return;
+  // Poll MY reaction node (buddy writes here)
+  fetch(squadReactPath(squadCfg.myName))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.ts && data.ts > lastReactionTs) {
+        lastReactionTs = data.ts;
+        showIncomingReaction(data);
+      }
+    })
+    .catch(function() {});
+}
+
+function showIncomingReaction(data) {
+  var el = document.getElementById('squadIncoming');
+  document.getElementById('squadIncomingEmoji').textContent = data.emoji || '🔥';
+  document.getElementById('squadIncomingFrom').textContent = data.from || 'Buddy';
+  var msgEl = document.getElementById('squadIncomingMsg');
+  msgEl.textContent = data.msg || '';
+  msgEl.style.display = data.msg ? 'block' : 'none';
+  el.classList.add('show');
+  // Vibrate if supported
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  setTimeout(function() { el.classList.remove('show'); }, 2500);
+}
+
+function renderReactionBar() {
+  if (!squadCfg) return '';
+  var html = '<div class="squad-react-bar">';
+  REACT_EMOJIS.forEach(function(e) {
+    html += '<button class="squad-react-btn" onclick="sendReaction(\'' + e + '\')">' + e + '</button>';
+  });
+  html += '</div>';
+  html += '<div class="squad-msg-row"><input type="text" class="squad-msg-input" id="squadMsgInput" placeholder="Talk smack..." maxlength="100"><button class="squad-msg-send" onclick="sendReaction(\'💬\')">Send</button></div>';
+  return html;
+}
+
+// Start polling for incoming reactions alongside buddy data
+var reactionPollTimer = null;
+function startReactionPolling() {
+  if (reactionPollTimer) clearInterval(reactionPollTimer);
+  if (!squadCfg) return;
+  checkIncomingReactions();
+  reactionPollTimer = setInterval(checkIncomingReactions, 3000);
+}
+
+// Hook into squad startup
+(function() {
+  var origStart = startSquadPolling;
+  startSquadPolling = function() {
+    origStart();
+    startReactionPolling();
+  };
+  // If already started, kick off reaction polling too
+  if (squadCfg) startReactionPolling();
+}());
 </script>
 </body>
 </html>

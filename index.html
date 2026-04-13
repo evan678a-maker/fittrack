@@ -24,23 +24,6 @@
   --glow:rgba(59,130,246,0.25);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-dark-mode="false"]){
-    --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
-    --card:#1e293b;--card2:#334155;--card3:#475569;
-    --border:rgba(59,130,246,0.25);
-    --text:#f1f5f9;--text2:#cbd5e1;--text3:#94a3b8;
-    --glow:rgba(59,130,246,0.3);
-  }
-}
-
-html[data-dark-mode="true"] {
-  --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;
-  --card:#1e293b;--card2:#334155;--card3:#475569;
-  --border:rgba(59,130,246,0.25);
-  --text:#f1f5f9;--text2:#cbd5e1;--text3:#94a3b8;
-  --glow:rgba(59,130,246,0.3);
-}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:'Space Grotesk',system-ui,sans-serif}
 body{background:var(--bg);min-height:100vh;min-height:100dvh;overflow-x:hidden;color:var(--text)}
 .pages-wrap{display:flex;width:200vw;transition:transform .35s cubic-bezier(.4,0,.2,1)}
@@ -58,8 +41,6 @@ body{background:var(--bg);min-height:100vh;min-height:100dvh;overflow-x:hidden;c
 .app-date{font-size:12px;color:var(--text3);font-weight:500;margin-top:2px;letter-spacing:.3px}
 .goals-btn{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.35);border-radius:20px;padding:9px 18px;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s}
 .goals-btn:active{background:rgba(59,130,246,.3)}
-.theme-toggle{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.35);border-radius:20px;padding:9px 14px;color:var(--text);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all .2s;margin-left:8px}
-.theme-toggle:active{background:rgba(59,130,246,.3)}
 .mini-bars{display:flex;gap:8px;margin-top:16px}
 .mini-bar{flex:1;background:rgba(59,130,246,.07);border:1px solid var(--border);border-radius:16px;padding:10px 8px;text-align:center}
 .mini-bar-num{font-size:12px;font-weight:700;color:var(--text)}
@@ -286,6 +267,16 @@ input,button,select,textarea{font-family:'Space Grotesk',system-ui,sans-serif}
 .squad-feed-item.buddy{background:rgba(251,176,36,.1);color:var(--text2)}
 .squad-feed-time{font-size:10px;color:var(--text3);white-space:nowrap;margin-left:6px}
 
+/* Chat Messages */
+.squad-chat{margin-top:12px;border-top:1px solid var(--border);padding-top:12px}
+.squad-chat-title{font-weight:800;font-size:11px;color:var(--text2);margin-bottom:8px;letter-spacing:.8px;text-transform:uppercase;display:flex;align-items:center;gap:4px}
+.squad-chat-messages{max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
+.squad-chat-msg{padding:8px 10px;margin-bottom:6px;border-radius:12px;font-size:12px;line-height:1.4}
+.squad-chat-msg.me{background:rgba(59,130,246,.15);color:var(--text);text-align:right}
+.squad-chat-msg.buddy{background:rgba(251,176,36,.1);color:var(--text2);text-align:left}
+.squad-chat-name{font-weight:700;font-size:10px;opacity:.7;margin-bottom:2px}
+.squad-chat-time{font-size:9px;color:var(--text3);margin-top:2px;opacity:.6}
+
 /* Reactions */
 .squad-react-bar{display:flex;gap:5px;justify-content:center;margin-top:10px;flex-wrap:wrap}
 .squad-react-btn{background:#fff;border:1px solid rgba(59,130,246,.2);border-radius:12px;padding:7px 10px;font-size:18px;cursor:pointer;transition:transform .15s;line-height:1;box-shadow:0 2px 8px rgba(59,130,246,.08)}
@@ -332,10 +323,7 @@ input,button,select,textarea{font-family:'Space Grotesk',system-ui,sans-serif}
       <div class="app-title">FitTrack</div>
       <div class="app-date" id="dateDisplay"></div>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="theme-toggle" id="themeToggle" onclick="toggleDarkMode()">🌙</button>
-      <button class="goals-btn" onclick="openGoalModal()">⚙️ Goals</button>
-    </div>
+    <button class="goals-btn" onclick="openGoalModal()">⚙️ Goals</button>
   </div>
   <div class="mini-bars" id="miniBars"></div>
   <div class="all-done" id="allDone">🏆 All goals smashed! Legend.</div>
@@ -545,30 +533,6 @@ function ringH(id, cur, goal, opts) {
   var wrapStyle=opts.size?'width:'+sz+'px;height:'+sz+'px':'';
   var numClass='ring-num'+(dn?' done':'')+(opts.mini?' ring-num-sm':'');
   return '<div class="ring-wrap" style="'+wrapStyle+'"><svg width="'+sz+'" height="'+sz+'">'+grad+'<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" class="ring-bg" stroke-width="'+sw+'"/><circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" class="ring-fg" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-dasharray="'+c+'" stroke-dashoffset="'+o+'" stroke-linecap="round"/></svg><div class="ring-text"><span class="'+numClass+'">'+cur+'</span><span class="ring-goal"'+(opts.mini?' style="font-size:10px"':'')+'>/ '+goal+'</span></div></div>';
-}
-
-/* ══ DARK MODE ══ */
-var darkMode=null;
-function toggleDarkMode(){
-  if(darkMode===null) darkMode=!(window.matchMedia('(prefers-color-scheme: dark)').matches);
-  else darkMode=!darkMode;
-  localStorage.setItem('fittrack-darkmode',darkMode);
-  updateTheme();
-}
-function updateTheme(){
-  if(darkMode===null){
-    darkMode=window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var saved=localStorage.getItem('fittrack-darkmode');
-    if(saved!==null) darkMode=saved==='true';
-  }
-  document.documentElement.setAttribute('data-dark-mode',darkMode);
-  document.documentElement.style.colorScheme=darkMode?'dark':'light';
-  document.getElementById('themeToggle').textContent=darkMode?'☀️':'🌙';
-}
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',updateTheme);
-}else{
-  updateTheme();
 }
 
 /* ══ GOALS MODAL ══ */
@@ -925,6 +889,26 @@ function getExLabel(id){
   var ex=EX.find(function(e){return e.id===id;}); return ex?ex.icon+' '+ex.label:id;
 }
 
+function renderChatMessages(){
+  if(!squadCfg) return '';
+  var today=getTodayKey();
+  var msgs=D.squadChat&&D.squadChat[today]||[];
+  if(msgs.length===0) return '';
+  var html='<div class="squad-chat"><div class="squad-chat-title">💬 Today\'s Chat</div><div class="squad-chat-messages">';
+  msgs.slice().reverse().slice(0,30).reverse().forEach(function(m){
+    var isMe=m.from===squadCfg.myName;
+    var time=new Date(m.ts);
+    var timeStr=time.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    html+='<div class="squad-chat-msg '+(isMe?'me':'buddy')+'">';
+    if(!isMe) html+='<div class="squad-chat-name">'+m.from+'</div>';
+    html+=m.text;
+    html+='<div class="squad-chat-time">'+timeStr+'</div>';
+    html+='</div>';
+  });
+  html+='</div></div>';
+  return html;
+}
+
 function renderActivityFeed(){
   var today=getTodayKey(),todayStart=parseLocalDate(today).getTime(),todayEnd=todayStart+86400000;
   var myActs=(D.activityLog||[]).filter(function(e){return e.t>=todayStart&&e.t<todayEnd;})
@@ -1047,6 +1031,7 @@ function renderSquadCard(){
   html+='<div class="squad-header"><div class="squad-icon">👥</div><div><div class="squad-title">Squad</div><div class="squad-sub">'+statusText+'</div></div><button class="squad-edit-btn" onclick="openSquadModal()">Edit</button></div>';
   html+='<div class="squad-members-grid">'+myTile+memberTiles+'</div>';
   html+=renderLeaderboard();
+  html+=renderChatMessages();
   html+=renderActivityFeed();
   html+=renderReactionBar();
   html+='</div>';
@@ -1061,7 +1046,15 @@ function sendReaction(emoji){
   if(!squadCfg) return;
   var msgInput=document.getElementById('squadMsgInput');
   var msg=msgInput?msgInput.value.trim():'';
-  fetch(squadReactPath(),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:squadCfg.myName,emoji:emoji,msg:msg,ts:Date.now()})}).catch(function(){});
+  var payload={from:squadCfg.myName,emoji:emoji,msg:msg,ts:Date.now()};
+  fetch(squadReactPath(),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+  if(msg){
+    if(!D.squadChat) D.squadChat={};
+    var today=getTodayKey();
+    if(!D.squadChat[today]) D.squadChat[today]=[];
+    D.squadChat[today].push({from:squadCfg.myName,text:msg,ts:payload.ts});
+    saveData();
+  }
   if(msgInput) msgInput.value='';
   showToast('Sent '+emoji);
 }
@@ -1080,6 +1073,15 @@ function showIncomingReaction(data){
   el.classList.add('show');
   if(navigator.vibrate) navigator.vibrate([100,50,100]);
   setTimeout(function(){el.classList.remove('show');},2500);
+
+  // Save message to chat history if it has text
+  if(data.msg){
+    if(!D.squadChat) D.squadChat={};
+    var today=getTodayKey();
+    if(!D.squadChat[today]) D.squadChat[today]=[];
+    D.squadChat[today].push({from:data.from||'Someone',text:data.msg,ts:data.ts||Date.now()});
+    saveData();
+  }
 }
 function renderReactionBar(){
   if(!squadCfg) return '';

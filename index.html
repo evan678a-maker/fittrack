@@ -49,6 +49,11 @@ body{background:var(--bg);min-height:100vh;min-height:100dvh;overflow-x:hidden;c
 .mini-bar-fill.done{background:var(--grad3)}
 .mini-bar-label{font-size:9px;color:var(--text3);font-weight:600;margin-top:4px;letter-spacing:.5px;text-transform:uppercase}
 .all-done{margin-top:12px;background:rgba(16,185,129,.1);border-radius:14px;padding:10px 16px;text-align:center;font-weight:700;font-size:13px;color:#10B981;border:1px solid rgba(16,185,129,.25);display:none;letter-spacing:.2px}
+.streak-box{margin-top:12px;background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(99,102,241,.05));border-radius:14px;padding:14px 16px;text-align:center;border:1px solid rgba(59,130,246,.25);display:flex;align-items:center;justify-content:center;gap:10px}
+.streak-flame{font-size:24px}
+.streak-info{text-align:left}
+.streak-count{font-weight:900;font-size:18px;color:var(--text)}
+.streak-label{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
 .all-done.show{display:block;animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
 @keyframes popIn{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
 .tracking-label{margin-top:8px;text-align:center;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
@@ -591,6 +596,27 @@ function computeStats() {
     tyr:EX.reduce(function(s,e){return s+yT[e.id];},0)};
 }
 
+/* ══ STREAK TRACKING ══ */
+function initStreakData(){
+  if(!D.streaks) D.streaks={};
+}
+function recordDayWin(dateKey){
+  initStreakData();
+  D.streaks[dateKey]=true;
+  saveData();
+}
+function computeStreak(){
+  initStreakData();
+  var streak=0,today=getTodayKey(),d=new Date();
+  for(var i=0;i<=365;i++){
+    var dk=getLocalDateKey(d);
+    if(D.streaks[dk]) streak++;
+    else if(i>0) break;
+    d.setDate(d.getDate()-1);
+  }
+  return streak;
+}
+
 /* ══ REMINDERS ══ */
 function getReminders() {
   var hr=new Date().getHours(),tl=getTodayLog();
@@ -625,6 +651,21 @@ function render() {
   document.getElementById('miniBars').innerHTML=mb;
   document.getElementById('allDone').classList.toggle('show',allDn);
 
+  // Record win if all goals hit
+  if(allDn) recordDayWin(today);
+
+  // Compute and display streak
+  var streak=computeStreak();
+  var streakHtml='<div class="streak-box"><span class="streak-flame">🔥</span><div class="streak-info"><div class="streak-count">'+streak+' days</div><div class="streak-label">Current Streak</div></div></div>';
+  var allDoneEl=document.getElementById('allDone');
+  if(allDoneEl.nextElementSibling && allDoneEl.nextElementSibling.classList.contains('streak-box')){
+    allDoneEl.nextElementSibling.innerHTML=streakHtml;
+  }else if(allDoneEl.parentNode){
+    var streakBox=document.createElement('div');
+    streakBox.innerHTML=streakHtml;
+    allDoneEl.parentNode.insertBefore(streakBox.firstElementChild,allDoneEl.nextElementSibling);
+  }
+
   var h='';
 
   // ── LAZY SHAME BANNER ──
@@ -634,7 +675,7 @@ function render() {
   if(hr>=9 && totalRepsToday===0) {
     h+='<div class="lazy-banner">';
     h+='<img class="lazy-img" src="'+SHAME_IMG+'" alt="Get moving!">';
-    h+='<div class="lazy-text"><div class="lazy-title">BOOOO YOU LAZY 😤</div>';
+    h+='<div class="lazy-text"><div class="lazy-title">BOOOO YOU LAZY NIGGAA 😤</div>';
     h+='<div class="lazy-sub">Get some reps up, no excuses fr fr</div></div></div>';
   }
 
@@ -693,7 +734,6 @@ function render() {
   // Squad card
   h+=renderSquadCard();
 
-  h+='<button class="reset-btn" onclick="if(confirm(\'Reset all data? Cannot be undone.\')){localStorage.removeItem(\''+SK+'\');location.reload()}">Reset All Data</button>';
   document.getElementById('content').innerHTML=h;
 }
 
@@ -713,7 +753,7 @@ document.addEventListener('touchstart',function(e){
 document.addEventListener('touchend',function(e){
   if(!swiping) return; swiping=false;
   var dx=e.changedTouches[0].clientX-touchX,dy=e.changedTouches[0].clientY-touchY;
-  if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>60){
+  if(Math.abs(dx)>Math.abs(dy)*1.5&&Math.abs(dx)>80&&Math.abs(dy)<50){
     if(dx<0&&curPage===0) goPage(1); else if(dx>0&&curPage===1) goPage(0);
   }
 },{passive:true});
@@ -894,8 +934,8 @@ function renderChatMessages(){
   var today=getTodayKey();
   var msgs=D.squadChat&&D.squadChat[today]||[];
   if(msgs.length===0) return '';
-  var html='<div class="squad-chat"><div class="squad-chat-title">💬 Today\'s Chat</div><div class="squad-chat-messages">';
-  msgs.slice().reverse().slice(0,30).reverse().forEach(function(m){
+  var html='<div class="squad-chat"><div class="squad-chat-title">💬 Today\'s Chat</div><div class="squad-chat-messages" id="chatMessages">';
+  msgs.forEach(function(m){
     var isMe=m.from===squadCfg.myName;
     var time=new Date(m.ts);
     var timeStr=time.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
@@ -906,6 +946,10 @@ function renderChatMessages(){
     html+='</div>';
   });
   html+='</div></div>';
+  setTimeout(function(){
+    var chatEl=document.getElementById('chatMessages');
+    if(chatEl) chatEl.scrollTop=chatEl.scrollHeight;
+  },10);
   return html;
 }
 
@@ -1048,13 +1092,21 @@ function sendReaction(emoji){
   var msg=msgInput?msgInput.value.trim():'';
   var payload={from:squadCfg.myName,emoji:emoji,msg:msg,ts:Date.now()};
   fetch(squadReactPath(),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+
+  if(!D.squadChat) D.squadChat={};
+  var today=getTodayKey();
+  if(!D.squadChat[today]) D.squadChat[today]=[];
+
+  // Save message text if present
   if(msg){
-    if(!D.squadChat) D.squadChat={};
-    var today=getTodayKey();
-    if(!D.squadChat[today]) D.squadChat[today]=[];
     D.squadChat[today].push({from:squadCfg.myName,text:msg,ts:payload.ts});
-    saveData();
   }
+  // Save emoji if it's a reaction (not 💬 send button)
+  else if(emoji!=='💬'){
+    D.squadChat[today].push({from:squadCfg.myName,text:emoji,ts:payload.ts});
+  }
+
+  saveData();
   if(msgInput) msgInput.value='';
   showToast('Sent '+emoji);
 }
@@ -1074,14 +1126,21 @@ function showIncomingReaction(data){
   if(navigator.vibrate) navigator.vibrate([100,50,100]);
   setTimeout(function(){el.classList.remove('show');},2500);
 
-  // Save message to chat history if it has text
+  // Save to chat history
+  if(!D.squadChat) D.squadChat={};
+  var today=getTodayKey();
+  if(!D.squadChat[today]) D.squadChat[today]=[];
+
+  // Save message if present
   if(data.msg){
-    if(!D.squadChat) D.squadChat={};
-    var today=getTodayKey();
-    if(!D.squadChat[today]) D.squadChat[today]=[];
     D.squadChat[today].push({from:data.from||'Someone',text:data.msg,ts:data.ts||Date.now()});
-    saveData();
   }
+  // Save emoji if it's a reaction
+  else if(data.emoji){
+    D.squadChat[today].push({from:data.from||'Someone',text:data.emoji,ts:data.ts||Date.now()});
+  }
+
+  saveData();
 }
 function renderReactionBar(){
   if(!squadCfg) return '';

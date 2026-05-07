@@ -25,10 +25,11 @@
 }
 
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:'Space Grotesk',system-ui,sans-serif}
-body{background:var(--bg);min-height:100vh;min-height:100dvh;overflow-x:hidden;color:var(--text)}
-.pages-wrap{display:flex;width:200vw;transition:transform .35s cubic-bezier(.4,0,.2,1)}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{background:var(--bg);color:var(--text)}
+.pages-wrap{display:flex;width:200vw;height:100%;transition:transform .35s cubic-bezier(.4,0,.2,1)}
 .pages-wrap.on-cal{transform:translateX(-100vw)}
-.page{width:100vw;min-height:100vh;min-height:100dvh;flex-shrink:0;background:var(--bg)}
+.page{width:100vw;height:100%;flex-shrink:0;background:var(--bg);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 
 .page-dots{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:90}
 .page-dot{width:8px;height:8px;border-radius:50%;background:rgba(59,130,246,.25);transition:all .3s;cursor:pointer}
@@ -456,6 +457,24 @@ function loadData() {
       if (old) saveData();
     }
   } catch(e) { D = defaultData(); }
+  // One-time cleanup: dedupe any existing chat duplicates by (from, ts, text)
+  // caused by the pre-fix restart-duplication bug.
+  try {
+    if (D.squadChat && !D._chatDeduped) {
+      var changed = false;
+      Object.keys(D.squadChat).forEach(function(day){
+        var arr = D.squadChat[day]; if(!Array.isArray(arr)) return;
+        var seen = {}, out = [];
+        arr.forEach(function(m){
+          var k = (m.from||'') + '|' + (m.ts||'') + '|' + (m.text||'');
+          if (!seen[k]) { seen[k] = true; out.push(m); }
+        });
+        if (out.length !== arr.length) { D.squadChat[day] = out; changed = true; }
+      });
+      D._chatDeduped = true;
+      if (changed) saveData(); else saveData();
+    }
+  } catch(e) {}
 }
 function saveData() { try { localStorage.setItem(SK, JSON.stringify(D)); } catch(e) {} }
 
@@ -744,7 +763,9 @@ function goPage(p){
   document.getElementById('pagesWrap').classList.toggle('on-cal',p===1);
   document.getElementById('dot0').classList.toggle('active',p===0);
   document.getElementById('dot1').classList.toggle('active',p===1);
-  window.scrollTo(0,0); if(p===1) renderCal();
+  var pg=document.getElementById(p===0?'pageDash':'pageCal');
+  if(pg) pg.scrollTop=0;
+  if(p===1) renderCal();
 }
 document.addEventListener('touchstart',function(e){
   if(document.getElementById('goalModal').classList.contains('show')) return;
@@ -1084,7 +1105,8 @@ function renderSquadCard(){
 
 /* ══ REACTIONS ══ */
 var REACT_EMOJIS=['🔥','💀','😤','👑','💪','🐌','😂','🫡'];
-var lastReactionTs=0;
+var REACT_TS_SK='fittrack-last-reaction-ts';
+var lastReactionTs=parseInt(localStorage.getItem(REACT_TS_SK)||'0',10)||0;
 function squadReactPath(){return squadRoomUrl()+'/reactions.json';}
 function sendReaction(emoji){
   if(!squadCfg) return;
@@ -1113,7 +1135,11 @@ function sendReaction(emoji){
 function checkIncomingReactions(){
   if(!squadCfg) return;
   fetch(squadReactPath()).then(function(r){return r.json();}).then(function(data){
-    if(data&&data.ts&&data.ts>lastReactionTs){lastReactionTs=data.ts;if(data.from!==squadCfg.myName)showIncomingReaction(data);}
+    if(data&&data.ts&&data.ts>lastReactionTs){
+      lastReactionTs=data.ts;
+      try{localStorage.setItem(REACT_TS_SK,String(lastReactionTs));}catch(e){}
+      if(data.from!==squadCfg.myName) showIncomingReaction(data);
+    }
   }).catch(function(){});
 }
 function showIncomingReaction(data){
@@ -1131,16 +1157,20 @@ function showIncomingReaction(data){
   var today=getTodayKey();
   if(!D.squadChat[today]) D.squadChat[today]=[];
 
-  // Save message if present
-  if(data.msg){
-    D.squadChat[today].push({from:data.from||'Someone',text:data.msg,ts:data.ts||Date.now()});
+  var ts=data.ts||Date.now();
+  var fromName=data.from||'Someone';
+  // De-dup defensively: don't push if same (from,ts) already in history
+  var dup=D.squadChat[today].some(function(m){return m.ts===ts && m.from===fromName;});
+  if(!dup){
+    if(data.msg){
+      D.squadChat[today].push({from:fromName,text:data.msg,ts:ts});
+    } else if(data.emoji){
+      D.squadChat[today].push({from:fromName,text:data.emoji,ts:ts});
+    }
+    saveData();
+    // Refresh the squad card so the message appears in history without a restart
+    updateSquadCard();
   }
-  // Save emoji if it's a reaction
-  else if(data.emoji){
-    D.squadChat[today].push({from:data.from||'Someone',text:data.emoji,ts:data.ts||Date.now()});
-  }
-
-  saveData();
 }
 function renderReactionBar(){
   if(!squadCfg) return '';
